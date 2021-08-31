@@ -1,0 +1,12 @@
+[package]
+name = "buildrecall"
+description = "Use a cloud build farm to make rust builds fast."
+version = "0.1.0"
+edition = "2018"
+license = "MIT"
+website = "https://buildrecall.com"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
