@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{AppSettings, Clap};
 use notify::{RecursiveMode, Watcher};
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 mod global_config;
 mod login;

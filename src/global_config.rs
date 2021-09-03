@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, OpenOptions},
     io::Write,
+    path::Path,
 };
 
 // What's stored in their home directory
@@ -22,19 +23,23 @@ pub fn read_global_config() -> Result<GlobalConfig> {
 pub fn overwrite_global_config(c: GlobalConfig) -> Result<()> {
     let t = toml::to_string_pretty(&c).unwrap();
 
-    fs::create_dir_all("~/.buildrecall")?;
+    // In the future, we could use a $BUILD_RECALL_ACCESS_TOKEN env instead of a config file if
+    // this becomes a problem
+    let home = std::env::var("HOME")
+        .context("Build Recall creates a config file for you in your $HOME directory, but it can't the environment variable $HOME (aka: '~'). If you're using a system that doesn't have a $HOME for development, please reach out to us and we can add a workaround for you.")?;
 
-    println!("Creating");
+    let dir = Path::new(&home).join(".buildrecall");
+    fs::create_dir_all(dir.clone())?;
 
-    let filepath = "~/.buildrecall/config";
+    let filepath = dir.join("config");
 
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(filepath)
-        .context(format!("Failed to open config file {}", filepath))?;
+        .open(filepath.clone())
+        .context(format!("Failed to open config file {:?}", filepath))?;
 
     file.write_all(t.as_bytes())
-        .context(format!("Failed to write to config file {}", filepath))
+        .context(format!("Failed to write to config file {:?}", filepath))
 }
