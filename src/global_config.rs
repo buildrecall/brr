@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, OpenOptions},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 // What's stored in their home directory
@@ -12,9 +12,22 @@ pub struct GlobalConfig {
     pub access_token: Option<String>,
 }
 
+fn get_global_dir() -> Result<PathBuf> {
+    // In the future, we could use a $BUILD_RECALL_ACCESS_TOKEN env instead of a config file if
+    // this becomes a problem
+    let home = std::env::var("HOME")
+        .context("Build Recall creates a config file for you in your $HOME directory, but it can't the environment variable $HOME (aka: '~'). If you're using a system that doesn't have a $HOME for development, please reach out to us and we can add a workaround for you.")?;
+
+    let dir = Path::new(&home).join(".buildrecall");
+
+    Ok(dir)
+}
+
 pub fn read_global_config() -> Result<GlobalConfig> {
-    fs::create_dir_all("~/.buildrecall")?;
-    let f = fs::read_to_string("~/.buildrecall/config").unwrap();
+    let dir = get_global_dir()?;
+    fs::create_dir_all(dir.clone())?;
+    let filepath = dir.join("config");
+    let f = fs::read_to_string(filepath).unwrap();
     let config: GlobalConfig = toml::from_str(f.as_str()).unwrap();
 
     Ok(config)
@@ -23,12 +36,7 @@ pub fn read_global_config() -> Result<GlobalConfig> {
 pub fn overwrite_global_config(c: GlobalConfig) -> Result<()> {
     let t = toml::to_string_pretty(&c).unwrap();
 
-    // In the future, we could use a $BUILD_RECALL_ACCESS_TOKEN env instead of a config file if
-    // this becomes a problem
-    let home = std::env::var("HOME")
-        .context("Build Recall creates a config file for you in your $HOME directory, but it can't the environment variable $HOME (aka: '~'). If you're using a system that doesn't have a $HOME for development, please reach out to us and we can add a workaround for you.")?;
-
-    let dir = Path::new(&home).join(".buildrecall");
+    let dir = get_global_dir()?;
     fs::create_dir_all(dir.clone())?;
 
     let filepath = dir.join("config");
