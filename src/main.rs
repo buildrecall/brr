@@ -5,9 +5,7 @@ use std::time::Duration;
 
 fn main() -> Result<()> {
     watch_dir()?;
-    println!("watching..."); //1234
 
-    std::thread::sleep(Duration::from_secs(1000));
     Ok(())
 }
 
@@ -22,7 +20,13 @@ fn watch_dir() -> Result<()> {
 
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
-    watcher.watch(Path::new("."), RecursiveMode::Recursive)?;
+    watcher.watch(Path::new("."), RecursiveMode::Recursive)?; //
+    println!("watching {:?}", std::env::current_dir()); //1234qawedo
+    std::thread::sleep(Duration::from_secs(1000));
 
     Ok(())
 }
+
+fn send_latest_commit() {}
+
+fn send_diff() {}
