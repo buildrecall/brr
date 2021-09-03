@@ -64,10 +64,6 @@ async fn main() -> Result<()> {
         SubCommand::Logs(_) => Ok(()),
     }
 
-    // watch_dir()?;
-    // println!("watching..."); //1234
-
-    // std::thread::sleep(Duration::from_secs(1000));
     // Ok(())
 }
 
@@ -78,8 +74,6 @@ fn watch_dir() -> Result<()> {
         Err(e) => println!("watch error: {:?}", e),
     })?;
 
-    //
-
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
     watcher.watch(Path::new("."), RecursiveMode::Recursive)?; //
@@ -89,6 +83,10 @@ fn watch_dir() -> Result<()> {
     Ok(())
 }
 
-fn send_latest_commit() {}
+fn init_git_transport() -> Result<()> {
+    Ok(())
+}
+
+async fn send_latest_commit() {}
 
 fn send_diff() {}
