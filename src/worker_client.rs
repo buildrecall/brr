@@ -1,7 +1,7 @@
-use std::sync::Once;
+use std::{convert::TryFrom, sync::Once};
 
 use crate::Result;
-use hyper::{header::UPGRADE, Body, Client};
+use hyper::{header::UPGRADE, http::uri::Scheme, Body, Client};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
 
@@ -32,28 +32,23 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
     fn action(
         &self,
         url: &str,
-        action: git2::transport::Service,
+        _action: git2::transport::Service,
     ) -> Result<Box<dyn git2::transport::SmartSubtransportStream>, git2::Error> {
-        use git2::{
-            transport::SmartSubtransport, transport::Transport, Error, ErrorClass, ErrorCode,
-        };
+        use git2::{Error, ErrorClass, ErrorCode};
 
         trace!("creating transport for url {}", url);
 
-        let mut url = url::Url::parse(url)
+        let uri = hyper::Uri::try_from(url)
             .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
 
-        url.set_scheme("http").map_err(|_| {
-            Error::new(
-                ErrorCode::Invalid,
-                ErrorClass::Config,
-                "failed to set url scheme",
-            )
-        })?;
+        let mut parts = uri.into_parts();
+        parts.scheme = Some(Scheme::HTTP);
+        let uri = hyper::Uri::from_parts(parts)
+            .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
 
         let handle = tokio::runtime::Handle::current();
         let conn = handle
-            .block_on(git_conn(url))
+            .block_on(git_conn(uri))
             .map_err(|e| Error::new(ErrorCode::GenericError, ErrorClass::Http, e.to_string()))?;
 
         Ok(Box::new(conn))
@@ -65,9 +60,10 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
 }
 struct RecallGitConn(hyper::upgrade::Upgraded);
 
-async fn git_conn(url: url::Url) -> Result<RecallGitConn> {
+async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
     //  https://github.com/hyperium/hyper/blob/master/examples/upgrades.rs
     let upgrade_req = hyper::Request::builder()
+        .method("POST")
         .uri(url.to_string())
         .header(UPGRADE, "recall-git")
         .body(Body::empty())?;
@@ -105,22 +101,28 @@ impl std::io::Write for RecallGitConn {
 
 #[cfg(test)]
 mod test {
+    use axum::http::HeaderValue;
+    use hyper::{header, upgrade::OnUpgrade, StatusCode};
+
     use super::*;
     #[tokio::test]
     async fn test_git_upgrade() -> Result<()> {
         tracing_subscriber::fmt::init();
+
+        tokio::spawn(TestGitRemote::start());
         trace!("initing git transport");
         init_git_transport();
         trace!("init git transport");
 
         let handle = tokio::runtime::Handle::current();
+        let refspecs: &[&str] = &["refs/heads/main:refs/heads/main"];
         handle
-            .spawn_blocking(|| -> Result<_> {
+            .spawn_blocking(move || -> Result<_> {
                 let repo = TempGitRepo::init()?;
                 trace!("temp git repo ready");
                 let mut remote = repo.remote_anonymous("recall+git://localhost:7890")?;
                 // let mut remote = repo.remote("recall", "recall+git://localhost:7890")?;
-                Ok(remote.push(&["head"], None)?)
+                Ok(remote.push(refspecs, None)?)
             })
             .await??;
         trace!("here");
@@ -147,9 +149,26 @@ mod test {
             let rand_path =
                 std::env::temp_dir().join(base64::encode_config(rand_path, base64::URL_SAFE));
             trace!("creating temp git repo {:?}", rand_path);
+
+            let repo = git2::Repository::init(rand_path.clone())?;
+            let sig = git2::Signature::now("test", "test")?;
+            {
+                let mut index = repo.index()?;
+                let tree_id = index.write_tree()?;
+                let tree = repo.find_tree(tree_id)?;
+                repo.commit(
+                    Some("HEAD"),
+                    &sig,
+                    &sig,
+                    &format!("Initial test commit {:?}", rand_path),
+                    &tree,
+                    &[],
+                )?;
+            }
+
             Ok(Self {
                 path: rand_path.clone(),
-                repo: git2::Repository::init(rand_path)?,
+                repo,
             })
         }
     }
@@ -158,5 +177,61 @@ mod test {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    struct TestGitRemote {}
+    impl TestGitRemote {
+        async fn start() {
+            use hyper::upgrade::{OnUpgrade, Upgraded};
+            let app = axum::Router::new().route("/", axum::handler::post(handle_test_git_conn));
+
+            axum::Server::bind(&"127.0.0.1:7890".parse().unwrap())
+                .serve(app.into_make_service())
+                .await
+                .unwrap();
+        }
+    }
+
+    async fn handle_test_git_conn(
+        mut req: axum::http::Request<axum::body::Body>,
+    ) -> axum::http::Response<axum::body::Body> {
+        let upgrade = req.extensions_mut().remove::<OnUpgrade>().unwrap();
+
+        tokio::spawn(async move {
+            let conn = upgrade.await.unwrap();
+            trace!("upgrade done!");
+            let (mut rd, mut wr) = tokio::io::split(conn);
+
+            git2::Repository::init("/tmp/gittest");
+            let mut child = tokio::process::Command::new("git")
+                .args(["receive-pack", "/tmp/gittest"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+
+            let mut stdin = child.stdin.take().unwrap();
+            let mut stdout = child.stdout.take().unwrap();
+
+            tokio::spawn(async move { tokio::io::copy(&mut rd, &mut stdin).await });
+            tokio::spawn(async move { tokio::io::copy(&mut stdout, &mut wr).await });
+
+            child.wait().await;
+        });
+
+        trace!("got request");
+
+        axum::http::Response::builder()
+            .status(StatusCode::SWITCHING_PROTOCOLS)
+            .header(
+                header::CONNECTION,
+                HeaderValue::from_str("upgrade").unwrap(),
+            )
+            .header(
+                header::UPGRADE,
+                HeaderValue::from_str("recall-git").unwrap(),
+            )
+            .body(Default::default())
+            .unwrap()
     }
 }
