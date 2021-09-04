@@ -44,13 +44,18 @@ dependencies = [
  "anyhow",
  "clap",
  "git2",
+ "hyper",
  "notify",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
+<<<<<<< HEAD
  "toml",
  "uuid",
+=======
+ "url",
+>>>>>>> cc16a95 (cli WIP)
 ]
 
 [[package]]
@@ -175,6 +180,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+<<<<<<< HEAD
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -190,6 +196,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "form_urlencoded"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -224,6 +232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88d1c26957f23603395cd326b0ffe64124b818f4449552f960d815cfba83a53d"
 
 [[package]]
+<<<<<<< HEAD
 name = "futures-io"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -236,6 +245,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36ea153c13024fe480590b3e3d4cad89a0cfacecc24577b68f86c6ced9c2bc11"
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "futures-task"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -249,6 +260,7 @@ checksum = "36568465210a3a6ee45e1f165136d68671471a501e632e9a98d96872222b5481"
 dependencies = [
  "autocfg",
  "futures-core",
+<<<<<<< HEAD
  "futures-io",
  "futures-task",
  "memchr",
@@ -266,6 +278,11 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
+=======
+ "futures-task",
+ "pin-project-lite",
+ "pin-utils",
+>>>>>>> cc16a95 (cli WIP)
 ]
 
 [[package]]
@@ -370,14 +387,20 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
+<<<<<<< HEAD
  "h2",
+=======
+>>>>>>> cc16a95 (cli WIP)
  "http",
  "http-body",
  "httparse",
  "httpdate",
  "itoa",
  "pin-project-lite",
+<<<<<<< HEAD
  "socket2",
+=======
+>>>>>>> cc16a95 (cli WIP)
  "tokio",
  "tower-service",
  "tracing",
@@ -385,6 +408,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "hyper-tls"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -398,6 +422,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "idna"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -448,12 +474,15 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "ipnet"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68f2d64f2edebec4ce84ad108148e67e1064789bee435edc5b60ad398714a3a9"
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1121,6 +1150,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "tokio-native-tls"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1154,6 +1184,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "tower-service"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1280,6 +1312,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "wasi"
 version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1364,6 +1397,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> cc16a95 (cli WIP)
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
