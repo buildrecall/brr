@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::{AppSettings, Clap};
 use notify::{RecursiveMode, Watcher};
 use std::{path::Path, time::Duration};
-use tokio::io::{AsyncRead, AsyncWrite};
 
 mod global_config;
 mod login;
@@ -19,17 +18,20 @@ struct Opts {
 
 #[derive(Clap, Debug)]
 enum SubCommand {
-    #[clap(version = "0.1", author = "Build Recall")]
+    #[clap()]
     Login(login::Login),
 
-    #[clap(version = "0.1", author = "Build Recall")]
+    #[clap()]
     Attach(Attach),
 
-    #[clap(version = "0.1", author = "Build Recall")]
+    #[clap()]
     Detach(Detach),
 
-    #[clap(version = "0.1", author = "Build Recall")]
+    #[clap()]
     Logs(Logs),
+
+    #[clap()]
+    Pull(Pull),
 }
 
 /// Streams the build logs from the build farm
@@ -40,9 +42,16 @@ struct Logs {}
 #[derive(Clap, Debug)]
 struct Attach {}
 
-/// Stops watching this folder on the build farm
+/// Stop prebuilding this folder on the build farm
 #[derive(Clap, Debug)]
 struct Detach {}
+
+/// Downloads the build farm's version of this folder
+/// when it is finished building.
+///
+/// Use this in CI to deploy your build.
+#[derive(Clap, Debug)]
+struct Pull {}
 
 /// Login to
 /// buildrecall login <token>
@@ -64,9 +73,8 @@ async fn main() -> Result<()> {
         SubCommand::Attach(_) => Ok(()),
         SubCommand::Detach(_) => Ok(()),
         SubCommand::Logs(_) => Ok(()),
+        SubCommand::Pull(_) => Ok(()),
     }
-
-    // Ok(())
 }
 
 fn watch_dir() -> Result<()> {
