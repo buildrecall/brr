@@ -6,10 +6,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[derive(Deserialize, Serialize)]
+pub struct RepoConfig {
+    path: String,
+}
+
 // What's stored in their home directory
 #[derive(Deserialize, Serialize)]
 pub struct GlobalConfig {
     pub access_token: Option<String>,
+    pub repos: Option<Vec<RepoConfig>>,
 }
 
 fn get_global_dir() -> Result<PathBuf> {
@@ -33,8 +39,11 @@ pub fn read_global_config() -> Result<GlobalConfig> {
     Ok(config)
 }
 
-pub fn overwrite_global_config(c: GlobalConfig) -> Result<()> {
-    let t = toml::to_string_pretty(&c).unwrap();
+pub fn overwrite_global_config(f: impl FnOnce(GlobalConfig) -> GlobalConfig) -> Result<()> {
+    let current = read_global_config()?;
+    let next_config = f(current);
+
+    let t = toml::to_string_pretty(&next_config).unwrap();
 
     let dir = get_global_dir()?;
     fs::create_dir_all(dir.clone())?;

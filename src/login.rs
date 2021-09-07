@@ -57,8 +57,9 @@ async fn post_cli_login(token: String) -> Result<String> {
 pub async fn run_login(login: Login) -> Result<()> {
     let tok = post_cli_login(login.token).await?;
 
-    overwrite_global_config(GlobalConfig {
-        access_token: Some(tok),
+    overwrite_global_config(|c| GlobalConfig {
+        access_token: Some(tok.clone()),
+        repos: c.repos,
     })?;
 
     Ok(())
