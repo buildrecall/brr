@@ -65,6 +65,7 @@ async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
     let upgrade_req = hyper::Request::builder()
         .method("POST")
         .uri(url.to_string())
+        //TODO: add bearer auth header
         .header(UPGRADE, "recall-git")
         .body(Body::empty())?;
 
@@ -117,12 +118,13 @@ mod test {
         trace!("init git transport");
 
         let handle = tokio::runtime::Handle::current();
-        //  push to non-main branch so that we dont get "branch is currently checked out" error
-        //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
-        let refspecs: &[&str] = &["+HEAD:refs/heads/incoming"];
 
         handle
             .spawn_blocking(move || -> Result<_> {
+                //  push to non-main branch so that we dont get "branch is currently checked out" error
+                //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
+                let refspecs: &[&str] = &["+HEAD:refs/heads/incoming"];
+
                 let mut push_cbs = RemoteCallbacks::new();
                 push_cbs.push_update_reference(|ref_, msg| {
                     eprintln!("{:?}", (ref_, msg));

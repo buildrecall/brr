@@ -21,8 +21,12 @@ pub struct GlobalConfig {
 fn get_global_dir() -> Result<PathBuf> {
     // In the future, we could use a $BUILD_RECALL_ACCESS_TOKEN env instead of a config file if
     // this becomes a problem
-    let home = std::env::var("HOME")
-        .context("Build Recall creates a config file for you in your $HOME directory, but it can't the environment variable $HOME (aka: '~'). If you're using a system that doesn't have a $HOME for development, please reach out to us and we can add a workaround for you.")?;
+    let home = dirs::home_dir().ok_or(anyhow::anyhow!(
+        "Build Recall creates a config file for you in your $HOME directory, but it
+can't the environment variable $HOME (aka: '~'). If you're using a system that
+doesn't have a $HOME for development, please reach out to us and we can add a
+workaround for you.",
+    ))?;
 
     let dir = Path::new(&home).join(".buildrecall");
 
