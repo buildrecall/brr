@@ -101,7 +101,9 @@ impl std::io::Write for RecallGitConn {
 
 #[cfg(test)]
 mod test {
+
     use axum::http::HeaderValue;
+    use git2::{PushOptions, RemoteCallbacks};
     use hyper::{header, upgrade::OnUpgrade, StatusCode};
 
     use super::*;
@@ -115,14 +117,26 @@ mod test {
         trace!("init git transport");
 
         let handle = tokio::runtime::Handle::current();
-        let refspecs: &[&str] = &["refs/heads/main:refs/heads/main"];
+        //  push to non-main branch so that we dont get "branch is currently checked out" error
+        //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
+        let refspecs: &[&str] = &["+HEAD:refs/heads/incoming"];
+
         handle
             .spawn_blocking(move || -> Result<_> {
+                let mut push_cbs = RemoteCallbacks::new();
+                push_cbs.push_update_reference(|ref_, msg| {
+                    eprintln!("{:?}", (ref_, msg));
+                    Ok(())
+                });
+
+                let mut push_opts = PushOptions::new();
+                push_opts.remote_callbacks(push_cbs);
+
                 let repo = TempGitRepo::init()?;
                 trace!("temp git repo ready");
                 let mut remote = repo.remote_anonymous("recall+git://localhost:7890")?;
                 // let mut remote = repo.remote("recall", "recall+git://localhost:7890")?;
-                Ok(remote.push(refspecs, None)?)
+                Ok(remote.push(refspecs, Some(&mut push_opts))?)
             })
             .await??;
         trace!("here");
@@ -207,6 +221,7 @@ mod test {
                 .args(["receive-pack", "/tmp/gittest"])
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::inherit())
                 .spawn()
                 .unwrap();
 
@@ -216,7 +231,10 @@ mod test {
             tokio::spawn(async move { tokio::io::copy(&mut rd, &mut stdin).await });
             tokio::spawn(async move { tokio::io::copy(&mut stdout, &mut wr).await });
 
-            child.wait().await;
+            let status = child.wait().await.unwrap();
+            if !status.success() {
+                panic!("bad exit code {:?}", status);
+            }
         });
 
         trace!("got request");
