@@ -13,7 +13,7 @@ anyhow = "1.0.43"
 clap = "3.0.0-beta.4"
 git2 = "0.13.21"
 hyper = "0.14.12"
-notify = "5.0.0-pre.12"
+notify = "4.0.17"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 tokio = { version = "1.11.0", features = ["full"] }
 serde_json = "1.0.66"
@@ -29,6 +29,7 @@ dirs = "3.0.2"
 tempdir = "0.3.7"
 dialoguer = "0.8.0"
 async-trait = "0.1.51"
+glob = "0.3.0"
 
 [dev-dependencies]
 axum = "0.2.3"

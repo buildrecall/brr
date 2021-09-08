@@ -8,6 +8,7 @@ use worker_client::push_to_worker;
 
 mod api;
 mod attach;
+mod daemon;
 mod global_config;
 mod login;
 mod worker_client;
@@ -44,6 +45,10 @@ enum SubCommand {
     #[clap()]
     #[doc(hidden)]
     TestPush(Empty),
+
+    #[clap()]
+    #[doc(hidden)]
+    Daemon(Empty),
 }
 
 /// Streams the build logs from the build farm
@@ -96,21 +101,6 @@ async fn main() -> Result<()> {
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
         SubCommand::TestPush(_) => push_to_worker().await,
+        SubCommand::Daemon(_) => daemon::run_daemon(get_global_config_dir()?),
     }
-}
-
-fn watch_dir() -> Result<()> {
-    // Automatically select the best implementation for your platform.
-    let mut watcher = notify::recommended_watcher(|res| match res {
-        Ok(event) => println!("event: {:?}", event),
-        Err(e) => println!("watch error: {:?}", e),
-    })?;
-
-    // Add a path to be watched. All files and directories at that path and
-    // below will be monitored for changes.
-    watcher.watch(Path::new("."), RecursiveMode::Recursive)?; //
-    println!("watching {:?}", std::env::current_dir()); //1234qawedo
-    std::thread::sleep(Duration::from_secs(1000));
-
-    Ok(())
 }
