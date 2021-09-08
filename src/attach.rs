@@ -30,7 +30,22 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         .collect::<Vec<_>>();
     let folder = pieces[pieces.len() - 1].clone();
 
-    // check if global config already has this
+    // check if global config already has this path.
+    // In which case do nothing
+
+    let existing = global_config
+        .clone()
+        .repos
+        .unwrap_or(vec![])
+        .iter()
+        .find(|r| r.path == path)
+        .is_some();
+
+    if existing {
+        return Err(anyhow!(
+            "There's already a build farm attached to this folder. Perhaps you meant to detach it?"
+        ));
+    }
 
     client.create_project(args.slug.clone()).await?;
 
