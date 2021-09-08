@@ -1,6 +1,9 @@
 use std::{convert::TryFrom, sync::Once};
 
-use crate::{global_config::read_global_config, Result};
+use crate::{
+    global_config::{get_global_config_dir, read_global_config},
+    Result,
+};
 use hyper::{
     header::{AUTHORIZATION, UPGRADE},
     http::uri::Scheme,
@@ -95,7 +98,7 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
 struct RecallGitConn(hyper::upgrade::Upgraded);
 
 async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
-    let access_token = read_global_config()?
+    let access_token = read_global_config(get_global_config_dir()?)?
         .access_token
         .ok_or(anyhow::anyhow!("no configured access_token"))?;
     //  https://github.com/hyperium/hyper/blob/master/examples/upgrades.rs

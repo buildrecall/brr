@@ -1,9 +1,13 @@
 use anyhow::Result;
+use attach::AttachArguments;
 use clap::{AppSettings, Clap};
+use global_config::get_global_config_dir;
 use notify::{RecursiveMode, Watcher};
 use std::{path::Path, time::Duration};
 use worker_client::push_to_worker;
 
+mod api;
+mod attach;
 mod global_config;
 mod login;
 mod worker_client;
@@ -48,7 +52,10 @@ struct Logs {}
 
 /// Prebuilds this folder on the build farm
 #[derive(Clap, Debug)]
-struct Attach {}
+struct Attach {
+    /// A name for this project that other folks on your team can understand
+    pub name: String,
+}
 
 /// Stop prebuilding this folder on the build farm
 #[derive(Clap, Debug)]
@@ -67,7 +74,7 @@ struct Pull {}
 struct Watch {
     /// A single-use, bash-history-safe token that
     /// confirms your login.
-    token: String,
+    pub token: String,
 }
 
 #[tokio::main]
@@ -77,8 +84,14 @@ async fn main() -> Result<()> {
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
     match opts.subcmd {
-        SubCommand::Login(t) => login::run_login(t).await,
-        SubCommand::Attach(_) => Ok(()),
+        SubCommand::Login(l) => login::run_login(get_global_config_dir()?, l).await,
+        SubCommand::Attach(args) => {
+            attach::run_attach(
+                get_global_config_dir()?,
+                AttachArguments { slug: args.name },
+            )
+            .await
+        }
         SubCommand::Detach(_) => Ok(()),
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
