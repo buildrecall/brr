@@ -48,6 +48,13 @@ impl ApiClient {
     pub fn new(global_config: GlobalConfig) -> ApiClient {
         ApiClient { global_config }
     }
+
+    pub fn get_host(&self) -> String {
+        self.global_config
+            .clone()
+            .host()
+            .unwrap_or(BUILD_RECALL_HOST.into())
+    }
 }
 
 #[async_trait]
@@ -56,7 +63,7 @@ impl BuildRecall for ApiClient {
         let client = reqwest::Client::new();
 
         let resp = client
-            .post(format!("{}/v1/cli/login", self.global_config.clone().host.unwrap_or(BUILD_RECALL_HOST.into())))
+            .post(format!("{}/v1/cli/login", self.get_host()))
             .json(&body)
             .send()
             .await
@@ -69,7 +76,7 @@ impl BuildRecall for ApiClient {
                 ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to login to Build Recall. Got a status code '{}' for 'POST /v1/cli/login'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+            return Err(anyhow!("Failed to login to Build Recall. Got a status code '{}' for 'POST {}/v1/cli/login'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
         }
         let result = resp.json::<LoginRequestResponseBody>()
                 .await
@@ -80,12 +87,12 @@ impl BuildRecall for ApiClient {
 
     async fn list_projects(&self) -> Result<Vec<Project>> {
         let client = reqwest::Client::new();
-        let tok = self.global_config.clone().access_token.ok_or(
+        let tok = self.global_config.clone().access_token().ok_or(
                 anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config).")
             )?;
 
         let resp = client
-            .get(format!("{}/v1/cli/projects",  self.global_config.clone().host.unwrap_or(BUILD_RECALL_HOST.into())))
+            .get(format!("{}/v1/cli/projects",  self.get_host()))
             .bearer_auth(tok)
             .send()
             .await
@@ -97,7 +104,7 @@ impl BuildRecall for ApiClient {
                     ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to list your projects. Got a status code '{}' for 'GET /v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+            return Err(anyhow!("Failed to list your projects. Got a status code '{}' for 'GET {}/v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
         }
 
         let projects = resp.json::<Vec<Project>>()
@@ -109,12 +116,12 @@ impl BuildRecall for ApiClient {
 
     async fn create_project(&self, slug: String) -> Result<Project> {
         let client = reqwest::Client::new();
-        let tok = self.global_config.clone().access_token.ok_or(
+        let tok = self.global_config.clone().access_token().ok_or(
                 anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config).")
-            )?;
+        )?;
 
         let resp = client
-            .post(format!("{}/v1/cli/projects",  self.global_config.clone().host.unwrap_or(BUILD_RECALL_HOST.into())))
+            .post(format!("{}/v1/cli/projects",  self.get_host()))
             .json(&CreateProjectBody{
                 slug: slug
             })
@@ -129,7 +136,7 @@ impl BuildRecall for ApiClient {
             ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to create this project. Got a status code '{}' for 'POST /v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+            return Err(anyhow!("Failed to create this project. Got a status code '{}' for 'POST {}/v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
         }
 
         let result = resp.json::<Project>()

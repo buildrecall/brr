@@ -1,10 +1,12 @@
 use std::{env, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::{
     api::{ApiClient, BuildRecall},
-    global_config::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
+    global_config::{
+        overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig, RepoConfig,
+    },
 };
 
 pub struct AttachArguments {
@@ -12,15 +14,21 @@ pub struct AttachArguments {
 }
 
 pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Result<()> {
+    let global_config = read_global_config(global_config_dir.clone())?;
+    let client = ApiClient::new(global_config.clone());
+
+    if global_config.clone().access_token().is_none() {
+        return Err(anyhow!(
+            "You're not logged in. You can login by going to https://buildrecall.com/setup"
+        ));
+    }
+
     let path = env::current_dir()?;
     let pieces = path
         .components()
         .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
         .collect::<Vec<_>>();
     let folder = pieces[pieces.len() - 1].clone();
-
-    let global_config = read_global_config(global_config_dir.clone())?;
-    let client = ApiClient::new(global_config);
 
     // check if global config already has this
 
@@ -35,9 +43,8 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         repos.extend(c.repos.unwrap_or(vec![]));
 
         GlobalConfig {
-            access_token: c.access_token,
+            connection: c.connection,
             repos: Some(repos),
-            host: c.host,
         }
     })?;
 

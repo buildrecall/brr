@@ -1,4 +1,4 @@
-use crate::api;
+use crate::{api, global_config::ConnectionConfig};
 use anyhow::{anyhow, Context, Result};
 use clap::Clap;
 use std::path::PathBuf;
@@ -37,9 +37,11 @@ pub async fn run_login(global_config_dir: PathBuf, login: Login) -> Result<()> {
 
     let dir = get_global_config_dir()?;
     overwrite_global_config(dir, |c| GlobalConfig {
-        access_token: Some(tok.clone()),
+        connection: Some(ConnectionConfig {
+            access_token: Some(tok.clone()),
+            host: c.host(),
+        }),
         repos: c.repos,
-        host: c.host,
     })?;
 
     Ok(())

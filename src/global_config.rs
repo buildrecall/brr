@@ -1,6 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
+    fmt::Debug,
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -13,12 +14,30 @@ pub struct RepoConfig {
     pub path: PathBuf,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct ConnectionConfig {
+    pub access_token: Option<String>,
+    pub host: Option<String>,
+}
+
 // What's stored in their home directory
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GlobalConfig {
-    pub access_token: Option<String>,
+    pub connection: Option<ConnectionConfig>,
+
+    // To prevent "values emitted after tables, this repos needs"
+    // to happen after everything else.
     pub repos: Option<Vec<RepoConfig>>,
-    pub host: Option<String>,
+}
+
+impl GlobalConfig {
+    pub fn host(&self) -> Option<String> {
+        self.connection.clone()?.host
+    }
+
+    pub fn access_token(&self) -> Option<String> {
+        self.connection.clone()?.access_token
+    }
 }
 
 fn ensure_global_config_file(dir: PathBuf) -> Result<()> {
@@ -73,7 +92,16 @@ pub fn overwrite_global_config(
     let current = read_global_config(dir.clone())?;
     let next_config = f(current);
 
-    let t = toml::to_string_pretty(&next_config).unwrap();
+    let t = match toml::to_string_pretty(&next_config) {
+        Ok(str) => str,
+        Err(e) => {
+            return Err(anyhow!(
+                "Failed to serialize the global config to TOML. Got error: '{}'",
+                e.to_string()
+            ))
+        }
+    };
+
     fs::create_dir_all(dir.clone())?;
     let filepath = dir.join("config");
 
@@ -97,7 +125,9 @@ mod tests {
     use anyhow::Context;
     use tempdir::TempDir;
 
-    use crate::global_config::{overwrite_global_config, read_global_config, GlobalConfig};
+    use crate::global_config::{
+        overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig,
+    };
 
     #[test]
     fn test_read_creates_file_if_not_exist() {
@@ -120,15 +150,17 @@ mod tests {
         let dir = tmp.into_path();
 
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
-            access_token: Some("i-am-test".to_string()),
+            connection: Some(ConnectionConfig {
+                access_token: Some("i-am-test".to_string()),
+                host: c.host(),
+            }),
             repos: c.repos,
-            host: c.host,
         });
 
         let written_config = read_global_config(dir.clone())
             .context("Can't read global config")
             .unwrap();
 
-        assert_eq!(written_config.access_token, Some("i-am-test".to_string()));
+        assert_eq!(written_config.access_token(), Some("i-am-test".to_string()));
     }
 }

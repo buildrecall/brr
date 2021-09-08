@@ -99,7 +99,7 @@ struct RecallGitConn(hyper::upgrade::Upgraded);
 
 async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
     let access_token = read_global_config(get_global_config_dir()?)?
-        .access_token
+        .access_token()
         .ok_or(anyhow::anyhow!("no configured access_token"))?;
     //  https://github.com/hyperium/hyper/blob/master/examples/upgrades.rs
     let upgrade_req = hyper::Request::builder()
