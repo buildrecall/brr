@@ -1,7 +1,11 @@
 use std::{convert::TryFrom, sync::Once};
 
-use crate::Result;
-use hyper::{header::UPGRADE, http::uri::Scheme, Body, Client};
+use crate::{global_config::read_global_config, Result};
+use hyper::{
+    header::{AUTHORIZATION, UPGRADE},
+    http::uri::Scheme,
+    Body, Client,
+};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
 
@@ -10,6 +14,35 @@ fn init() -> Result<()> {
     init_git_transport();
 
     Ok(())
+}
+
+pub async fn push_to_worker() -> Result<()> {
+    init()?;
+
+    let repo_path = ".";
+
+    use git2::{PushOptions, RemoteCallbacks};
+
+    //  push to non-main branch so that we dont get "branch is currently checked out" error
+    //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
+    let refspecs: &[&str] = &["+HEAD:refs/heads/incoming"];
+
+    Ok(tokio::runtime::Handle::current()
+        .spawn_blocking(move || {
+            let repo = git2::Repository::open(repo_path)?;
+            let mut push_cbs = RemoteCallbacks::new();
+            push_cbs.push_update_reference(|ref_, msg| {
+                eprintln!("{:?}", (ref_, msg));
+                Ok(())
+            });
+
+            let mut push_opts = PushOptions::new();
+            push_opts.remote_callbacks(push_cbs);
+            let mut remote = repo.remote_anonymous("recall+git://localhost:7890/push")?;
+
+            remote.push(refspecs, Some(&mut push_opts))
+        })
+        .await??)
 }
 
 const RECALL_GIT_SCHEME_HTTP: &str = "recall+git";
@@ -46,6 +79,7 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
         let uri = hyper::Uri::from_parts(parts)
             .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
 
+        // let runtime = tokio::runtime::Runtime::new().unwrap();
         let handle = tokio::runtime::Handle::current();
         let conn = handle
             .block_on(git_conn(uri))
@@ -61,12 +95,16 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
 struct RecallGitConn(hyper::upgrade::Upgraded);
 
 async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
+    let access_token = read_global_config()?
+        .access_token
+        .ok_or(anyhow::anyhow!("no configured access_token"))?;
     //  https://github.com/hyperium/hyper/blob/master/examples/upgrades.rs
     let upgrade_req = hyper::Request::builder()
         .method("POST")
         .uri(url.to_string())
         //TODO: add bearer auth header
         .header(UPGRADE, "recall-git")
+        .header(AUTHORIZATION, format!("Bearer: {}", access_token))
         .body(Body::empty())?;
 
     let res = Client::new().request(upgrade_req).await?;
@@ -136,7 +174,7 @@ mod test {
 
                 let repo = TempGitRepo::init()?;
                 trace!("temp git repo ready");
-                let mut remote = repo.remote_anonymous("recall+git://localhost:7890")?;
+                let mut remote = repo.remote_anonymous("recall+git://localhost:7890/push")?;
                 // let mut remote = repo.remote("recall", "recall+git://localhost:7890")?;
                 Ok(remote.push(refspecs, Some(&mut push_opts))?)
             })

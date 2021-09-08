@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::{AppSettings, Clap};
 use notify::{RecursiveMode, Watcher};
 use std::{path::Path, time::Duration};
+use worker_client::push_to_worker;
 
 mod global_config;
 mod login;
@@ -15,6 +16,9 @@ struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
 }
+
+#[derive(Clap, Debug)]
+struct Empty {}
 
 #[derive(Clap, Debug)]
 enum SubCommand {
@@ -32,6 +36,10 @@ enum SubCommand {
 
     #[clap()]
     Pull(Pull),
+
+    #[clap()]
+    #[doc(hidden)]
+    TestPush(Empty),
 }
 
 /// Streams the build logs from the build farm
@@ -74,6 +82,7 @@ async fn main() -> Result<()> {
         SubCommand::Detach(_) => Ok(()),
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
+        SubCommand::TestPush(_) => push_to_worker().await,
     }
 }
 
