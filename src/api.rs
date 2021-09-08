@@ -69,7 +69,7 @@ impl BuildRecall for ApiClient {
                 ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to login to Build Recall. Got a status code '{}'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+            return Err(anyhow!("Failed to login to Build Recall. Got a status code '{}' for 'POST /v1/cli/login'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
         }
         let result = resp.json::<LoginRequestResponseBody>()
                 .await
@@ -89,12 +89,22 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .context("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")?
-            .json::<Vec<Project>>()
-            .await
-            .context(format!("Failed to list projects. The response to {} unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(", "/v1/cli/projects"))?;
+            .context("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")?;
 
-        Ok(resp)
+        if resp.status() == 401 {
+            return Err(anyhow!(
+                    "Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup",
+                    ));
+        }
+        if !resp.status().is_success() {
+            return Err(anyhow!("Failed to list your projects. Got a status code '{}' for 'GET /v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+        }
+
+        let projects = resp.json::<Vec<Project>>()
+        .await
+        .context(format!("Failed to list projects. The response to {} unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(", "/v1/cli/projects"))?;
+
+        Ok(projects)
     }
 
     async fn create_project(&self, slug: String) -> Result<Project> {
@@ -119,7 +129,7 @@ impl BuildRecall for ApiClient {
             ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to create this project. Got a status code '{}'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
+            return Err(anyhow!("Failed to create this project. Got a status code '{}' for 'POST /v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status()));
         }
 
         let result = resp.json::<Project>()
