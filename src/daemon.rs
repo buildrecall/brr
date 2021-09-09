@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Context, Result};
-use ignore::gitignore::{self, Gitignore};
+use ignore::gitignore::Gitignore;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::time::{Duration, SystemTime};
 use tracing::error;
@@ -92,7 +92,10 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                 {
                     // Run the build!
                     println!("build triggered by {:?} {:?}", relative, repo_path);
-                    push_to_worker(repo_path.clone()).await?;
+                    match push_to_worker(repo_path.clone()).await {
+                        Ok(_) => continue,
+                        Err(e) => error!("Push failed: {}", e.to_string()),
+                    };
                 }
             }
             Err(e) => println!("watch error: {:?}", e),

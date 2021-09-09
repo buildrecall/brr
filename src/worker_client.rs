@@ -4,6 +4,7 @@ use crate::{
     global_config::{get_global_config_dir, read_global_config},
     Result,
 };
+use anyhow::Context;
 use hyper::{
     header::{AUTHORIZATION, UPGRADE},
     http::uri::Scheme,
@@ -20,8 +21,6 @@ pub fn init() -> Result<()> {
 }
 
 pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
-    init()?;
-
     use git2::{PushOptions, RemoteCallbacks};
 
     //  push to non-main branch so that we dont get "branch is currently checked out" error
@@ -43,7 +42,8 @@ pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
 
             remote.push(refspecs, Some(&mut push_opts))
         })
-        .await??)
+        .await
+        .context("Failed to spawn the tokio runtime")??)
 }
 
 const RECALL_GIT_SCHEME_HTTP: &str = "recall+git";
@@ -56,6 +56,7 @@ fn init_git_transport() {
         git2::transport::register(RECALL_GIT_SCHEME_HTTP, |remote| {
             git2::transport::Transport::smart(remote, false, RecallGitTransport)
         })
+        .context("Failed to register the git transport")
         .unwrap();
     });
 }
@@ -106,18 +107,24 @@ async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
         //TODO: add bearer auth header
         .header(UPGRADE, "recall-git")
         .header(AUTHORIZATION, format!("Bearer: {}", access_token))
-        .body(Body::empty())?;
+        .body(Body::empty())
+        .context(format!("Failed to construct post for {}", url.to_string()))?;
 
-    let res = Client::new().request(upgrade_req).await?;
+    let res = Client::new().request(upgrade_req).await.context(format!(
+        "Failed to send upgrade request for {}",
+        url.to_string()
+    ))?;
 
-    let conn = hyper::upgrade::on(res).await?;
+    let conn = hyper::upgrade::on(res)
+        .await
+        .context(format!("Failed to upgrade: {}", url.to_string()))?;
 
     Ok(RecallGitConn(conn))
 }
 
-async fn send_latest_commit() {}
+// async fn send_latest_commit() {}
 
-fn send_diff() {}
+// fn send_diff() {}
 
 impl std::io::Read for RecallGitConn {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {

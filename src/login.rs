@@ -31,7 +31,7 @@ async fn post_cli_login(global_config: GlobalConfig, single_use_token: String) -
 }
 
 pub async fn run_login(global_config_dir: PathBuf, login: Login) -> Result<()> {
-    let global_config = read_global_config(get_global_config_dir()?)?;
+    let global_config = read_global_config(global_config_dir)?;
 
     let tok = post_cli_login(global_config, login.token).await?;
 

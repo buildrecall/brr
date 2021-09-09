@@ -1,9 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use attach::AttachArguments;
 use clap::{AppSettings, Clap};
 use global_config::get_global_config_dir;
-use notify::{RecursiveMode, Watcher};
-use std::{env, path::Path, time::Duration};
+
+use std::env;
 use worker_client::push_to_worker;
 
 mod api;
@@ -86,7 +86,7 @@ struct Watch {
 async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
 
-    worker_client::init();
+    worker_client::init().context("Failed to start worker client")?;
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
