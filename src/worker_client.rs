@@ -12,7 +12,7 @@ use hyper::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
 
-fn init() -> Result<()> {
+pub fn init() -> Result<()> {
     tracing_subscriber::fmt::init();
     init_git_transport();
 

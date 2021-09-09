@@ -1,5 +1,5 @@
 [package]
-name = "buildrecall"
+name = "brr"
 description = "Use a cloud build farm to make rust builds fast."
 version = "0.1.0"
 edition = "2018"
@@ -30,6 +30,7 @@ tempdir = "0.3.7"
 dialoguer = "0.8.0"
 async-trait = "0.1.51"
 glob = "0.3.0"
+ignore = "0.4.18"
 
 [dev-dependencies]
 axum = "0.2.3"
