@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use attach::AttachArguments;
 use clap::{AppSettings, Clap};
+use daemon::create_macos_launch_agent;
 use global_config::get_global_config_dir;
 
 use std::env;
@@ -87,6 +88,8 @@ async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
 
     worker_client::init().context("Failed to start worker client")?;
+
+    create_macos_launch_agent()?;
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time

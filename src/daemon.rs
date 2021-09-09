@@ -2,13 +2,87 @@ use anyhow::{anyhow, Context, Result};
 use ignore::gitignore::Gitignore;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{self, PathBuf};
 use std::sync::mpsc::channel;
 use std::time::{Duration, SystemTime};
 use tracing::error;
 
 use crate::global_config::read_global_config;
 use crate::worker_client::push_to_worker;
+
+#[cfg(target_os = "macos")]
+pub fn create_macos_launch_agent() -> Result<()> {
+    use std::fs::create_dir_all;
+
+    let bin = std::env::current_exe()?;
+    let home = dirs::home_dir().ok_or(anyhow!(
+        "Can't find a $HOME directory (aka ~), which is needed on MacOS to\n start the background process that syncs repos with the build farm."
+    ))?;
+
+    create_dir_all(home.join("Library").join("Logs").join("buildrecall"))?;
+
+    let stdout_log = home
+        .join("Library")
+        .join("Logs")
+        .join("buildrecall")
+        .join("out.log");
+
+    let stderr_log = home
+        .join("Library")
+        .join("Logs")
+        .join("buildrecall")
+        .join("err.log");
+
+    let xml = format!(
+        r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.buildrecall.daemon</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>{}</string>
+  <key>StandardErrorPath</key>
+  <string>{}</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{}</string>
+    <string>daemon</string>
+  </array>
+</dict>
+</plist>
+    "#,
+        stdout_log.to_str().unwrap(),
+        stderr_log.to_str().unwrap(),
+        bin.to_str().unwrap()
+    );
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(
+            path::Path::new(&home)
+                .join("Library")
+                .join("LaunchAgents")
+                .join("com.buildrecall.daemon"),
+        )
+        .context("Failed to open ~/Library/LaunchAgents/com.buildrecall.daemon")?;
+
+    file.write_all(xml.as_bytes())?;
+
+    Ok(())
+}
 
 pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
     let (tx, rx) = channel();
