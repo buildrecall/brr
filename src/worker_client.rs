@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, sync::Once};
+use std::{convert::TryFrom, path::PathBuf, sync::Once};
 
 use crate::{
     global_config::{get_global_config_dir, read_global_config},
@@ -19,10 +19,8 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
-pub async fn push_to_worker() -> Result<()> {
+pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
     init()?;
-
-    let repo_path = ".";
 
     use git2::{PushOptions, RemoteCallbacks};
 

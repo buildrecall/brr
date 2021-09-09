@@ -3,7 +3,7 @@ use attach::AttachArguments;
 use clap::{AppSettings, Clap};
 use global_config::get_global_config_dir;
 use notify::{RecursiveMode, Watcher};
-use std::{path::Path, time::Duration};
+use std::{env, path::Path, time::Duration};
 use worker_client::push_to_worker;
 
 mod api;
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
         SubCommand::Detach(_) => Ok(()),
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
-        SubCommand::TestPush(_) => push_to_worker().await,
-        SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?),
+        SubCommand::TestPush(_) => push_to_worker(env::current_dir()?).await,
+        SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
     }
 }

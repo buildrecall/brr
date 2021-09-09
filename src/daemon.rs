@@ -8,8 +8,9 @@ use std::time::{Duration, SystemTime};
 use tracing::error;
 
 use crate::global_config::read_global_config;
+use crate::worker_client::push_to_worker;
 
-pub fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
+pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
 
@@ -91,6 +92,7 @@ pub fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                 {
                     // Run the build!
                     println!("build triggered by {:?} {:?}", relative, repo_path);
+                    push_to_worker(repo_path.clone()).await?;
                 }
             }
             Err(e) => println!("watch error: {:?}", e),
