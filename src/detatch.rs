@@ -15,9 +15,17 @@ pub async fn run_detach(global_config_dir: PathBuf) -> Result<()> {
             .cloned()
             .collect::<Vec<RepoConfig>>();
 
+        // TOML doesn't like empty arrays
+        if existing.len() == 0 {
+            return GlobalConfig {
+                repos: None,
+                connection: c.connection,
+            };
+        }
+
         GlobalConfig {
-            connection: c.connection,
             repos: Some(existing),
+            connection: c.connection,
         }
     })?;
 

@@ -109,8 +109,9 @@ pub fn overwrite_global_config(
         .read(true)
         .write(true)
         .create(true)
+        .truncate(true)
         .open(filepath.clone())
-        .context(format!("Failed to open config file {:?}", filepath))?;
+        .context(format!("Failed to open config file {:?}", filepath.clone()))?;
 
     file.write_all(t.as_bytes())
         .context(format!("Failed to write to config file {:?}", filepath))?;
@@ -162,5 +163,27 @@ mod tests {
             .unwrap();
 
         assert_eq!(written_config.access_token(), Some("i-am-test".to_string()));
+    }
+
+    #[test]
+    fn test_ensure_can_write_none() {
+        let tmp = TempDir::new(".buildrecall")
+            .context("Can't create a tmp dir")
+            .unwrap();
+        let dir = tmp.into_path();
+
+        let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
+            connection: Some(ConnectionConfig {
+                access_token: Some("i-am-test".to_string()),
+                host: c.host(),
+            }),
+            repos: None,
+        });
+
+        let written_config = read_global_config(dir.clone())
+            .context("Can't read global config")
+            .unwrap();
+
+        assert!(written_config.repos.is_none());
     }
 }
