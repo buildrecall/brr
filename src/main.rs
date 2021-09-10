@@ -4,12 +4,10 @@ use clap::{AppSettings, Clap};
 use daemon::create_macos_launch_agent;
 use global_config::get_global_config_dir;
 
-use std::env;
-use worker_client::push_to_worker;
-
 mod api;
 mod attach;
 mod daemon;
+mod detatch;
 mod global_config;
 mod login;
 mod worker_client;
@@ -98,7 +96,7 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        SubCommand::Detach(_) => Ok(()),
+        SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
