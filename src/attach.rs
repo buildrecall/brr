@@ -1,6 +1,7 @@
 use std::{env, path::PathBuf};
 
 use anyhow::{anyhow, Result};
+use dialoguer::Confirm;
 
 use crate::{
     api::{ApiClient, BuildRecall},
@@ -32,19 +33,39 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
 
     // check if global config already has this path.
     // In which case do nothing
+    let empty = vec![];
+    let configs = global_config.clone().repos.unwrap_or(empty);
+    let existing = configs.iter().find(|r| r.path == path);
 
-    let existing = global_config
-        .clone()
-        .repos
-        .unwrap_or(vec![])
-        .iter()
-        .find(|r| r.path == path)
-        .is_some();
+    let projects = client.list_projects().await?;
 
-    if existing {
-        return Err(anyhow!(
-            "There's already a build farm attached to this folder. Perhaps you meant to detach it?"
+    match existing {
+        Some(c) => {
+            if projects.iter().find(|p| p.slug == c.name).is_none() {
+                return Err(anyhow!("This folder is attached to a build farm that no longer exists.\n\nIt might have been deleted by someone else, or it might exist on a different account.\nIf you want to recreate it, detach and then re-attach this folder:\n\n\tbrr detach\n\tbrr attach {}\n", c.name));
+            }
+
+            return Err(anyhow!(
+            "This folder is already attached to a build farm named '{}'.Perhaps you meant to detach it, like this:\n\n\tbrr detach\n", 
+            c.name
         ));
+        }
+        None => {}
+    }
+
+    // Check if there's already a project
+    let proj = projects.iter().find(|p| p.slug == args.slug);
+    if proj.is_some() {
+        if !Confirm::new()
+            .with_prompt(format!(
+                "A project named '{}' already exists\nLink this project?",
+                args.slug
+            ))
+            .default(true)
+            .interact()?
+        {
+            return Ok(());
+        }
     }
 
     client.create_project(args.slug.clone()).await?;

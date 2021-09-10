@@ -21,7 +21,6 @@ pub fn create_macos_launch_agent() -> Result<()> {
         "Can't find a $HOME directory (aka ~), which is needed on MacOS to\n start the background process that syncs repos with the build farm."
     ))?;
 
-    println!("Creating macos launch agent");
     create_dir_all(home.join("Library").join("Logs").join("buildrecall"))?;
 
     let stdout_log = home
