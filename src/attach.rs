@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub struct AttachArguments {
-    pub slug: String,
+    pub slug: Option<String>,
 }
 
 pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Result<()> {
@@ -31,6 +31,8 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         .collect::<Vec<_>>();
     let folder = pieces[pieces.len() - 1].clone();
 
+    let slug = args.slug.unwrap_or(folder);
+
     // check if global config already has this path.
     // In which case do nothing
     let empty = vec![];
@@ -46,7 +48,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
             }
 
             return Err(anyhow!(
-            "This folder is already attached to a build farm named '{}'.Perhaps you meant to detach it, like this:\n\n\tbrr detach\n", 
+            "This folder is already attached to a build farm named '{}'. Perhaps you meant to detach it, like this:\n\n\tbrr detach\n", 
             c.name
         ));
         }
@@ -54,12 +56,12 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
     }
 
     // Check if there's already a project
-    let proj = projects.iter().find(|p| p.slug == args.slug);
+    let proj = projects.iter().find(|p| p.slug == slug.clone());
     if proj.is_some() {
         if !Confirm::new()
             .with_prompt(format!(
                 "A project named '{}' already exists\nLink this project?",
-                args.slug
+                slug.clone()
             ))
             .default(true)
             .interact()?
@@ -68,12 +70,12 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         }
     }
 
-    client.create_project(args.slug.clone()).await?;
+    client.create_project(slug.clone()).await?;
 
     overwrite_global_config(global_config_dir, move |c| {
         let mut repos: Vec<RepoConfig> = vec![RepoConfig {
             path: path,
-            name: args.slug.clone(),
+            name: slug.clone(),
             id: uuid::Uuid::new_v4(),
         }];
         repos.extend(c.repos.unwrap_or(vec![]));

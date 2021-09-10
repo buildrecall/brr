@@ -56,7 +56,7 @@ struct Logs {}
 #[derive(Clap, Debug)]
 struct Attach {
     /// A name for this project that other folks on your team can understand
-    pub name: String,
+    pub name: Option<String>,
 }
 
 /// Stop prebuilding this folder on the build farm

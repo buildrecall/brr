@@ -119,8 +119,6 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
             .unwrap();
     }
 
-    let mut now = SystemTime::now();
-
     loop {
         match rx.recv() {
             Ok(event) => {
