@@ -45,10 +45,6 @@ enum SubCommand {
 
     #[clap()]
     #[doc(hidden)]
-    TestPush(Empty),
-
-    #[clap()]
-    #[doc(hidden)]
     Daemon(Empty),
 }
 
@@ -87,15 +83,15 @@ struct Watch {
 async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
 
-    worker_client::init().context("Failed to start worker client")?;
-
-    create_macos_launch_agent()?;
-
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
     match opts.subcmd {
         SubCommand::Login(l) => login::run_login(get_global_config_dir()?, l).await,
         SubCommand::Attach(args) => {
+            worker_client::init().context("Failed to start worker client.")?;
+            create_macos_launch_agent()
+                .context("Failed to start the Build Recall syncing daemon.")?;
+
             attach::run_attach(
                 get_global_config_dir()?,
                 AttachArguments { slug: args.name },
@@ -105,7 +101,6 @@ async fn main() -> Result<()> {
         SubCommand::Detach(_) => Ok(()),
         SubCommand::Logs(_) => Ok(()),
         SubCommand::Pull(_) => Ok(()),
-        SubCommand::TestPush(_) => push_to_worker(env::current_dir()?).await,
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
     }
 }

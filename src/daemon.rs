@@ -14,26 +14,27 @@ use crate::worker_client::push_to_worker;
 
 #[cfg(target_os = "macos")]
 pub fn create_macos_launch_agent() -> Result<()> {
-    use std::fs::create_dir_all;
+    use std::{fs::create_dir_all, process::Command};
 
     let bin = std::env::current_exe()?;
     let home = dirs::home_dir().ok_or(anyhow!(
         "Can't find a $HOME directory (aka ~), which is needed on MacOS to\n start the background process that syncs repos with the build farm."
     ))?;
 
+    println!("Creating macos launch agent");
     create_dir_all(home.join("Library").join("Logs").join("buildrecall"))?;
 
     let stdout_log = home
         .join("Library")
         .join("Logs")
         .join("buildrecall")
-        .join("out.log");
+        .join("buildrecall.out.log");
 
     let stderr_log = home
         .join("Library")
         .join("Logs")
         .join("buildrecall")
-        .join("err.log");
+        .join("buildrecall.err.log");
 
     let xml = format!(
         r#"
@@ -75,16 +76,26 @@ pub fn create_macos_launch_agent() -> Result<()> {
             path::Path::new(&home)
                 .join("Library")
                 .join("LaunchAgents")
-                .join("com.buildrecall.daemon"),
+                .join("com.buildrecall.daemon.plist"),
         )
-        .context("Failed to open ~/Library/LaunchAgents/com.buildrecall.daemon")?;
+        .context("Failed to open ~/Library/LaunchAgents/com.buildrecall.daemon.plist")?;
 
     file.write_all(xml.as_bytes())?;
+
+    Command::new("launchctl")
+        .args([
+            "load",
+            "-w",
+            "~/Library/LaunchAgents/com.buildrecall.daemon.plist",
+        ])
+        .output()
+        .expect("failed to start Buildrecall launch agent");
 
     Ok(())
 }
 
 pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
+    println!("Starting daemon");
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
 
