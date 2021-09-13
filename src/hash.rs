@@ -70,8 +70,6 @@ pub async fn hash_files(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
             .to_str()
             .ok_or(anyhow!("Failed to convert {:?} to string", result))?;
 
-        println!("Hashing: {}", as_str);
-
         let mut filepath = as_str.as_bytes().to_vec();
         let mut contents = fs::read(path.clone())
             .context(format!("Failed to read this file: {:?}", path.clone()))?;
