@@ -6,7 +6,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{self, PathBuf};
 use std::sync::mpsc::channel;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use tracing::error;
 
 use crate::global_config::read_global_config;

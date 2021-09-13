@@ -4,6 +4,7 @@ use crypto::sha3::Sha3;
 use ignore::gitignore::Gitignore;
 use std::fs;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 pub fn list_non_ignored_files_in_dir(dir: &PathBuf) -> Result<Vec<PathBuf>> {
     let (gi, err) = Gitignore::new(dir.clone().join(".gitignore"));
@@ -13,20 +14,23 @@ pub fn list_non_ignored_files_in_dir(dir: &PathBuf) -> Result<Vec<PathBuf>> {
         return Err(err.unwrap().into());
     }
 
-    let paths = fs::read_dir(dir)?;
+    let paths = WalkDir::new(dir);
 
     let mut matches = vec![];
     for f in paths {
         let fres = f?;
-        let fmeta = fres.metadata()?;
         let fpath = fres.path();
+        let fmeta = fres.metadata().context(format!(
+            "Can't read the metadata of the file {:?}",
+            fpath.clone()
+        ))?;
 
         let stripped = fpath.strip_prefix(dir)?;
         let is_ignored = gi
             .matched_path_or_any_parents(stripped, fmeta.is_dir())
             .is_ignore();
         if !is_ignored {
-            matches.push(fpath);
+            matches.push(fpath.to_path_buf());
         }
     }
 
@@ -86,6 +90,39 @@ mod tests {
 
     use super::list_non_ignored_files_in_dir;
 
+    // Checks that subdirectories are being included in hashes
+    #[tokio::test]
+    async fn test_recursive_differences() {
+        // Create a folder with some code.
+        let tmp_1 = TempDir::new(".recursive_dir_1")
+            .context("Can't create a tmp dir")
+            .unwrap();
+        create_dir_all(tmp_1.path().join("folder")).unwrap();
+        let a = tmp_1.path().join("alpha.flargle");
+        let mut afile = File::create(a.clone()).unwrap();
+        afile.write_all(b"Some *() text here; () => {}").unwrap();
+        let b = tmp_1.path().join("folder").join("231asb21.json");
+        let mut bfile = File::create(b.clone()).unwrap();
+        bfile.write_all(b"One thing here; () => {}").unwrap();
+
+        // Compute the original hash
+        let root_1 = &tmp_1.path().to_path_buf();
+        let files_1 = list_non_ignored_files_in_dir(&root_1.clone()).unwrap();
+        let hash_1 = hash_files(&root_1.clone(), files_1).await.unwrap();
+
+        // Change the code in a subdirectory
+        bfile.write_all(b"a totally different thing").unwrap();
+
+        // Compute the new hash
+        let root_2 = &tmp_1.path().to_path_buf();
+        let files_2 = list_non_ignored_files_in_dir(&root_2.clone()).unwrap();
+        let hash_2 = hash_files(&root_2.clone(), files_2).await.unwrap();
+
+        // Show they're different
+        assert_ne!(hash_1, hash_2);
+    }
+
+    // checks that two repos produce the same hash
     #[tokio::test]
     async fn test_equivalence() {
         // Create a folder with some code code.
@@ -123,6 +160,7 @@ mod tests {
         assert_eq!(hash_1, hash_2);
     }
 
+    // checks that the order of the hashed files doesn't change the outcome
     #[tokio::test]
     async fn test_with_different_permutations() {
         let tmp = TempDir::new(".hash")
