@@ -9,7 +9,9 @@ mod attach;
 mod daemon;
 mod detatch;
 mod global_config;
+mod hash;
 mod login;
+mod pull;
 mod worker_client;
 
 /// This is a tool that makes your builds faster.
@@ -97,8 +99,8 @@ async fn main() -> Result<()> {
             .await
         }
         SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
-        SubCommand::Logs(_) => Ok(()),
-        SubCommand::Pull(_) => Ok(()),
+        SubCommand::Logs(_) => todo!(),
+        SubCommand::Pull(_) => pull::run_pull(get_global_config_dir()?).await,
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
     }
 }
