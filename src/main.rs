@@ -1,8 +1,12 @@
+use std::env;
+
 use anyhow::{Context, Result};
 use attach::AttachArguments;
 use clap::{AppSettings, Clap};
 use daemon::create_macos_launch_agent;
 use global_config::get_global_config_dir;
+
+use crate::hash::list_non_ignored_files_in_dir;
 
 mod api;
 mod attach;
@@ -42,6 +46,10 @@ enum SubCommand {
 
     #[clap()]
     Pull(Pull),
+
+    #[clap()]
+    #[doc(hidden)]
+    Hash(Empty),
 
     #[clap()]
     #[doc(hidden)]
@@ -102,5 +110,12 @@ async fn main() -> Result<()> {
         SubCommand::Logs(_) => todo!(),
         SubCommand::Pull(_) => pull::run_pull(get_global_config_dir()?).await,
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
+        SubCommand::Hash(_) => {
+            let curr = env::current_dir()?.as_path().to_path_buf();
+            let files = list_non_ignored_files_in_dir(&curr.clone()).context("failed to list files in current dir")?;
+            let hash = hash::hash_files(&curr.clone(), files).await.context("failed to hash files")?;
+            println!("{}", hash);
+            Ok(())
+        }
     }
 }

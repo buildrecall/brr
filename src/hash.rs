@@ -1,12 +1,41 @@
 use anyhow::{anyhow, Context, Result};
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
+use ignore::gitignore::Gitignore;
 use std::fs;
 use std::path::PathBuf;
 
+pub fn list_non_ignored_files_in_dir(dir: &PathBuf) -> Result<Vec<PathBuf>> {
+    let (gi, err) = Gitignore::new(dir.clone().join(".gitignore"));
+
+    // We can't tell wether or not there's a git ignore
+    if err.is_some() {
+        return Err(err.unwrap().into());
+    }
+
+    let paths = fs::read_dir(dir)?;
+
+    let mut matches = vec![];
+    for f in paths {
+        let fres = f?;
+        let fmeta = fres.metadata()?;
+        let fpath = fres.path();
+
+        let stripped = fpath.strip_prefix(dir)?;
+        let is_ignored = gi
+            .matched_path_or_any_parents(stripped, fmeta.is_dir())
+            .is_ignore();
+        if !is_ignored {
+            matches.push(fpath);
+        }
+    }
+
+    Ok(matches)
+}
+
 /// Computes a sha-3 hash of the files in sorted order
 /// hash = sha3(file_path_relative_to_root + file_contents)
-pub async fn repo_hash(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
+pub async fn hash_files(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
     let mut sorted = paths.clone();
     sorted.sort_by(|a, b| b.cmp(a));
 
@@ -14,6 +43,10 @@ pub async fn repo_hash(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
     let mut hasher = Sha3::sha3_256();
 
     for path in sorted {
+        if path.is_dir() {
+            continue;
+        }
+
         /*
         Potentially could be a bug here: Executables on windows vs unix.
         - On Windows, every file is executable
@@ -35,21 +68,60 @@ pub async fn repo_hash(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
         hasher.input_str(format!("{}{}", as_str, fs::read_to_string(path)?.as_str()).as_str());
     }
 
-    Ok("".to_string())
+    Ok(hasher.result_str())
 }
 
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
     use itertools::Itertools;
-    use std::fs::File;
+    use std::fs::{create_dir_all, File};
 
     use std::io::Write;
     use std::path::Path;
     use std::vec;
     use tempdir::TempDir;
 
-    use crate::hash::repo_hash;
+    use crate::hash::hash_files;
+
+    use super::list_non_ignored_files_in_dir;
+
+    #[tokio::test]
+    async fn test_equivalence() {
+        // Create a folder with some code code.
+        let tmp_1 = TempDir::new(".recursive_dir_1")
+            .context("Can't create a tmp dir")
+            .unwrap();
+        create_dir_all(tmp_1.path().join("folder")).unwrap();
+        let a = tmp_1.path().join("alpha.flargle");
+        let mut afile = File::create(a.clone()).unwrap();
+        afile.write_all(b"Some *() text here; () => {}").unwrap();
+        let b = tmp_1.path().join("folder").join("231asb21.json");
+        let mut bfile = File::create(b.clone()).unwrap();
+        bfile.write_all(b"One thing here; () => {}").unwrap();
+
+        // Create a different folder with the same code
+        let tmp_2 = TempDir::new(".recursive_dir_2")
+            .context("Can't create a tmp dir")
+            .unwrap();
+        create_dir_all(tmp_2.path().join("folder")).unwrap();
+        let a = tmp_2.path().join("alpha.flargle");
+        let mut afile = File::create(a.clone()).unwrap();
+        afile.write_all(b"Some *() text here; () => {}").unwrap();
+        let b = tmp_2.path().join("folder").join("231asb21.json");
+        let mut bfile = File::create(b.clone()).unwrap();
+        bfile.write_all(b"One thing here; () => {}").unwrap();
+
+        // Hash both files, outputs should be the asme
+        let root_1 = &tmp_1.path().to_path_buf();
+        let files_1 = list_non_ignored_files_in_dir(&root_1.clone()).unwrap();
+        let hash_1 = hash_files(&root_1.clone(), files_1).await.unwrap();
+        let root_2 = tmp_2.path().to_path_buf();
+        let files_2 = list_non_ignored_files_in_dir(&root_2.clone()).unwrap();
+        let hash_2 = hash_files(&root_2.clone(), files_2).await.unwrap();
+
+        assert_eq!(hash_1, hash_2);
+    }
 
     #[tokio::test]
     async fn test_with_different_permutations() {
@@ -91,7 +163,7 @@ mod tests {
 
         let mut hashes: Vec<String> = vec![];
         for p in paths {
-            let hash = repo_hash(
+            let hash = hash_files(
                 &Path::new(tmp.as_ref()).to_path_buf(),
                 p.clone().iter().cloned().map(|e| e.clone()).collect_vec(),
             )
