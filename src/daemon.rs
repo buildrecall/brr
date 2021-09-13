@@ -166,11 +166,13 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                 }
 
                 let relative = path.strip_prefix(repo_path)?;
+                let is_git = relative.starts_with(".git");
                 let ig = maybe_ig.unwrap();
                 if ig
                     .matched_path_or_any_parents(&relative.clone(), false)
                     .is_ignore()
                     == false
+                    && !is_git
                 {
                     // Run the build!
                     println!("build triggered by {:?} {:?}", relative, repo_path);

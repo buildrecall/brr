@@ -29,7 +29,8 @@ pub fn list_non_ignored_files_in_dir(dir: &PathBuf) -> Result<Vec<PathBuf>> {
         let is_ignored = gi
             .matched_path_or_any_parents(stripped, fmeta.is_dir())
             .is_ignore();
-        if !is_ignored {
+        let is_git = stripped.starts_with(".git");
+        if !is_ignored && !is_git {
             matches.push(fpath.to_path_buf());
         }
     }
@@ -38,7 +39,7 @@ pub fn list_non_ignored_files_in_dir(dir: &PathBuf) -> Result<Vec<PathBuf>> {
 }
 
 /// Computes a sha-3 hash of the files in sorted order
-/// hash = sha3(file_path_relative_to_root + file_contents)
+/// hash = sha3(bytes(file_path_relative_to_root) + bytes(file_contents))
 pub async fn hash_files(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
     let mut sorted = paths.clone();
     sorted.sort_by(|a, b| b.cmp(a));
@@ -67,9 +68,19 @@ pub async fn hash_files(root: &PathBuf, paths: Vec<PathBuf>) -> Result<String> {
             .context(format!("{:?} is not a child of {:?}", path, root))?;
         let as_str = result
             .to_str()
-            .ok_or(anyhow!("Failed to cconvert {:?} to string", result))?;
+            .ok_or(anyhow!("Failed to convert {:?} to string", result))?;
 
-        hasher.input_str(format!("{}{}", as_str, fs::read_to_string(path)?.as_str()).as_str());
+        println!("Hashing: {}", as_str);
+
+        let mut filepath = as_str.as_bytes().to_vec();
+        let mut contents = fs::read(path.clone())
+            .context(format!("Failed to read this file: {:?}", path.clone()))?;
+
+        let mut input = vec![];
+        input.append(&mut filepath);
+        input.append(&mut contents);
+
+        hasher.input(&input);
     }
 
     Ok(hasher.result_str())
