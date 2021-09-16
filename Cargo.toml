@@ -35,7 +35,9 @@ rust-crypto = "0.2.36"
 itertools = "0.10.1"
 futures = "0.3.17"
 walkdir = "2.3.2"
+thiserror = "1.0"
 
 
 [dev-dependencies]
 axum = "0.2.3"
+

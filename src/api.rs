@@ -1,6 +1,20 @@
+use std::fmt::format;
+
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ApiError {
+    #[error("Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup")]
+    Unauthorized,
+    #[error("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")]
+    FailedToConnect,
+    #[error("Failed to '{request:?}' got a status code of: {status:?})")]
+    BadResponse { status: StatusCode, request: String },
+}
 
 const BUILD_RECALL_HOST: &str = "https://buildrecall.com";
 
@@ -32,11 +46,24 @@ pub struct CreateProjectBody {
     pub slug: String,
 }
 
+// Eventually, we'll use this body to let folks
+// add "approved" email domains, but for the moment
+// it is empty
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CreateInviteBody {}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OrgInvite {
+    pub org_id: uuid::Uuid,
+    pub token: String,
+}
+
 #[async_trait]
 pub trait BuildRecall {
     async fn login(&self, body: LoginRequestBody) -> Result<LoginRequestResponseBody>;
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, slug: String) -> Result<Project>;
+    async fn invite(&self) -> Result<OrgInvite>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -55,6 +82,11 @@ impl ApiClient {
             .host()
             .unwrap_or(BUILD_RECALL_HOST.into())
     }
+
+    fn token(&self) -> Result<String> {
+        self.global_config.clone().access_token().ok_or(
+            anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config)."))
+    }
 }
 
 #[async_trait]
@@ -67,7 +99,7 @@ impl BuildRecall for ApiClient {
             .json(&body)
             .send()
             .await
-            .context("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")?;
+            .map_err(|e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
             return Err(anyhow!(
@@ -76,7 +108,11 @@ impl BuildRecall for ApiClient {
                 ));
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to login to Build Recall. Got a status code '{}' for 'POST {}/v1/cli/login'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
+            return Err(ApiError::BadResponse {
+                request: format!("POST {}/v1/cli/login", self.get_host()),
+                status: resp.status(),
+            }
+            .into());
         }
         let result = resp.json::<LoginRequestResponseBody>()
                 .await
@@ -87,24 +123,24 @@ impl BuildRecall for ApiClient {
 
     async fn list_projects(&self) -> Result<Vec<Project>> {
         let client = reqwest::Client::new();
-        let tok = self.global_config.clone().access_token().ok_or(
-                anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config).")
-            )?;
+        let tok = self.token()?;
 
         let resp = client
-            .get(format!("{}/v1/cli/projects",  self.get_host()))
+            .get(format!("{}/v1/cli/projects", self.get_host()))
             .bearer_auth(tok)
             .send()
             .await
-            .context("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")?;
+            .map_err(|e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
-            return Err(anyhow!(
-                    "Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup",
-                    ));
+            return Err(ApiError::Unauthorized.into());
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to list your projects. Got a status code '{}' for 'GET {}/v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
+            return Err(ApiError::BadResponse {
+                request: format!("GET {}/v1/cli/projects", self.get_host()),
+                status: resp.status(),
+            }
+            .into());
         }
 
         let projects = resp.json::<Vec<Project>>()
@@ -116,30 +152,58 @@ impl BuildRecall for ApiClient {
 
     async fn create_project(&self, slug: String) -> Result<Project> {
         let client = reqwest::Client::new();
-        let tok = self.global_config.clone().access_token().ok_or(
-                anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config).")
-        )?;
+        let tok = self.token()?;
 
         let resp = client
-            .post(format!("{}/v1/cli/projects",  self.get_host()))
-            .json(&CreateProjectBody{
-                slug: slug
-            })
+            .post(format!("{}/v1/cli/projects", self.get_host()))
+            .json(&CreateProjectBody { slug: slug })
             .bearer_auth(tok)
             .send()
             .await
-            .context("Failed to connect to Build Recall. Perhaps your internet is down, or Build Recall is having an outage.")?;
+            .map_err(|e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
-            return Err(anyhow!(
-                "Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup"
-            ));
+            return Err(ApiError::Unauthorized.into());
         }
         if !resp.status().is_success() {
-            return Err(anyhow!("Failed to create this project. Got a status code '{}' for 'POST {}/v1/cli/projects'. Build Recall may be having an outage, or you may need to try running this command again.", resp.status(), self.get_host()));
+            return Err(ApiError::BadResponse {
+                request: format!("POST {}/v1/cli/projects", self.get_host()),
+                status: resp.status(),
+            }
+            .into());
         }
 
         let result = resp.json::<Project>()
+                .await
+                .context("Failed to create this project. The response unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(")?;
+
+        Ok(result)
+    }
+
+    async fn invite(&self) -> Result<OrgInvite> {
+        let client = reqwest::Client::new();
+        let tok = self.token()?;
+
+        let resp = client
+            .post(format!("{}/v1/cli/invites", self.get_host()))
+            .json(&CreateInviteBody {})
+            .bearer_auth(tok)
+            .send()
+            .await
+            .map_err(|e| ApiError::FailedToConnect)?;
+
+        if resp.status() == 401 {
+            return Err(ApiError::Unauthorized.into());
+        }
+        if !resp.status().is_success() {
+            return Err(ApiError::BadResponse {
+                request: format!("POST {}/v1/cli/invites", self.get_host()),
+                status: resp.status(),
+            }
+            .into());
+        }
+
+        let result = resp.json::<OrgInvite>()
                 .await
                 .context("Failed to create this project. The response unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(")?;
 

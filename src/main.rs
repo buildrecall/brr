@@ -14,6 +14,7 @@ mod daemon;
 mod detatch;
 mod global_config;
 mod hash;
+mod invite;
 mod login;
 mod pull;
 mod worker_client;
@@ -48,6 +49,9 @@ enum SubCommand {
     Pull(Pull),
 
     #[clap()]
+    Invite(Invite),
+
+    #[clap()]
     #[doc(hidden)]
     Hash(Empty),
 
@@ -55,6 +59,10 @@ enum SubCommand {
     #[doc(hidden)]
     Daemon(Empty),
 }
+
+/// Creates an invite link you can give to your team
+#[derive(Clap, Debug)]
+struct Invite {}
 
 /// Streams the build logs from the build farm
 #[derive(Clap, Debug)]
@@ -112,10 +120,14 @@ async fn main() -> Result<()> {
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
         SubCommand::Hash(_) => {
             let curr = env::current_dir()?.as_path().to_path_buf();
-            let files = list_non_ignored_files_in_dir(&curr.clone()).context("failed to list files in current dir")?;
-            let hash = hash::hash_files(&curr.clone(), files).await.context("failed to hash files")?;
+            let files = list_non_ignored_files_in_dir(&curr.clone())
+                .context("failed to list files in current dir")?;
+            let hash = hash::hash_files(&curr.clone(), files)
+                .await
+                .context("failed to hash files")?;
             println!("{}", hash);
             Ok(())
         }
+        SubCommand::Invite(_) => invite::run_invite(get_global_config_dir()?).await,
     }
 }
