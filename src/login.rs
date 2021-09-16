@@ -1,7 +1,7 @@
 use crate::{api, global_config::ConnectionConfig};
 use anyhow::{anyhow, Context, Result};
 use clap::Clap;
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 use crate::{
     api::{ApiClient, BuildRecall},
@@ -16,7 +16,7 @@ use crate::{
 pub struct Login {
     /// A single-use, bash-history-safe token that
     /// confirms your login.
-    pub token: String,
+    pub token: Option<String>,
 }
 
 async fn post_cli_login(global_config: GlobalConfig, single_use_token: String) -> Result<String> {
@@ -33,16 +33,31 @@ async fn post_cli_login(global_config: GlobalConfig, single_use_token: String) -
 pub async fn run_login(global_config_dir: PathBuf, login: Login) -> Result<()> {
     let global_config = read_global_config(global_config_dir)?;
 
-    let tok = post_cli_login(global_config, login.token).await?;
+    match login.token {
+        Some(token) => {
+            let tok = post_cli_login(global_config, token).await?;
 
-    let dir = get_global_config_dir()?;
-    overwrite_global_config(dir, |c| GlobalConfig {
-        connection: Some(ConnectionConfig {
-            access_token: Some(tok.clone()),
-            host: c.host(),
-        }),
-        repos: c.repos,
-    })?;
+            let dir = get_global_config_dir()?;
+            overwrite_global_config(dir, |c| GlobalConfig {
+                connection: Some(ConnectionConfig {
+                    access_token: Some(tok.clone()),
+                    host: c.host(),
+                }),
+                repos: c.repos,
+            })?;
 
-    Ok(())
+            Ok(())
+        }
+        None => {
+            eprintln!("Get a login code at https://buildrecall.com/login");
+
+            if cfg!(target_os = "macos") {
+                Command::new("open")
+                    .args(["https://buildrecall.com/login"])
+                    .output()?;
+            }
+
+            Ok(())
+        }
+    }
 }

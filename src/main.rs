@@ -86,15 +86,6 @@ struct Detach {}
 #[derive(Clap, Debug)]
 struct Pull {}
 
-/// Login to
-/// buildrecall login <token>
-#[derive(Clap, Debug)]
-struct Watch {
-    /// A single-use, bash-history-safe token that
-    /// confirms your login.
-    pub token: String,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
