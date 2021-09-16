@@ -16,7 +16,7 @@ pub async fn run_invite(global_config_dir: PathBuf) -> Result<()> {
         .context("Failed to create a new invite token")?;
 
     // Not a debug log, this is the output of this command
-    println!("{}", result.token);
+    println!("https://buildrecall.com/invite?token={}", result.token);
 
     Ok(())
 }
