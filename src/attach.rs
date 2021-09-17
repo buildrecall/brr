@@ -1,10 +1,11 @@
 use std::{env, path::PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use dialoguer::Confirm;
 
 use crate::{
-    api::{ApiClient, BuildRecall},
+    api::{ApiClient, BuildRecall, Project},
+    git::create_shadow_git_folder,
     global_config::{
         overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig, RepoConfig,
     },
@@ -15,7 +16,10 @@ pub struct AttachArguments {
 }
 
 pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Result<()> {
-    let global_config = read_global_config(global_config_dir.clone())?;
+    let global_config = read_global_config(global_config_dir.clone()).context(format!(
+        "Failed to read the global config file: {:?}",
+        global_config_dir
+    ))?;
     let client = ApiClient::new(global_config.clone());
 
     if global_config.clone().access_token().is_none() {
@@ -30,7 +34,6 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
         .collect::<Vec<_>>();
     let folder = pieces[pieces.len() - 1].clone();
-
     let slug = args.slug.unwrap_or(folder);
 
     // check if global config already has this path.
@@ -56,27 +59,39 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
     }
 
     // Check if there's already a project
-    let proj = projects.iter().find(|p| p.slug == slug.clone());
-    if proj.is_some() {
-        if !Confirm::new()
-            .with_prompt(format!(
-                "A project named '{}' already exists\nLink this project?",
-                slug.clone()
-            ))
-            .default(true)
-            .interact()?
-        {
-            return Ok(());
+    let maybe_project = projects.iter().find(|p| p.slug == slug.clone());
+    let project: Result<Project> = match maybe_project {
+        Some(p) => {
+            if !Confirm::new()
+                .with_prompt(format!(
+                    "A project named '{}' already exists\nLink this project?",
+                    slug.clone()
+                ))
+                .default(true)
+                .interact()?
+            {
+                return Ok(());
+            } else {
+                Ok(p.clone())
+            }
         }
-    }
+        None => {
+            let p = client
+                .create_project(slug.clone())
+                .await
+                .context("Failed to create the project in Buildrecall")?
+                .clone();
+            Ok(p)
+        }
+    };
 
-    client.create_project(slug.clone()).await?;
-
-    overwrite_global_config(global_config_dir, move |c| {
+    // create the project in the local config
+    let project_config_id = project?.clone().id.clone();
+    overwrite_global_config(global_config_dir.clone(), move |c| {
         let mut repos: Vec<RepoConfig> = vec![RepoConfig {
             path: path,
             name: slug.clone(),
-            id: uuid::Uuid::new_v4(),
+            id: project_config_id,
         }];
         repos.extend(c.repos.unwrap_or(vec![]));
 
@@ -84,7 +99,12 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
             connection: c.connection,
             repos: Some(repos),
         }
-    })?;
+    })
+    .context("Failed to store this project in the global config file")?;
+
+    // create a .git folder for brr to use that doesn't mess with the user's git.
+    create_shadow_git_folder(global_config_dir.clone(), project_config_id)
+        .context(format!("Failed to create a shadow git folder (used to sync files without messing with your own git setup) in {:?}/{}", global_config_dir, ".gits"))?;
 
     Ok(())
 }

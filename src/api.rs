@@ -79,7 +79,7 @@ impl ApiClient {
     pub fn get_host(&self) -> String {
         self.global_config
             .clone()
-            .host()
+            .control_host()
             .unwrap_or(BUILD_RECALL_HOST.into())
     }
 

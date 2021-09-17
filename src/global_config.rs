@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
+    env,
     fmt::Debug,
     fs::{self, OpenOptions},
     io::Write,
@@ -17,7 +18,12 @@ pub struct RepoConfig {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct ConnectionConfig {
     pub access_token: Option<String>,
-    pub host: Option<String>,
+
+    // The app to connect to (for dev / staging / production testing)
+    pub control_host: Option<String>,
+
+    // The build farm scheduler to connect to
+    pub scheduler_host: Option<String>,
 }
 
 // What's stored in their home directory
@@ -31,18 +37,44 @@ pub struct GlobalConfig {
 }
 
 impl GlobalConfig {
-    pub fn host(&self) -> Option<String> {
-        self.connection.clone()?.host
+    pub fn control_host(&self) -> Option<String> {
+        self.connection.clone()?.control_host
+    }
+
+    pub fn scheduler_host(&self) -> Option<String> {
+        self.connection.clone()?.scheduler_host
     }
 
     pub fn access_token(&self) -> Option<String> {
         self.connection.clone()?.access_token
     }
+
+    pub fn repo_config_by_id(&self, id: uuid::Uuid) -> Option<RepoConfig> {
+        let repos = self.repos.clone().unwrap_or(vec![]);
+        repos.into_iter().find(|f| f.id == id)
+    }
+
+    pub fn repo_config_of_current_dir(&self) -> Result<Option<RepoConfig>> {
+        let path = env::current_dir()?;
+        let pieces = path
+            .components()
+            .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
+            .collect::<Vec<_>>();
+        let folder = pieces[pieces.len() - 1].clone();
+
+        // check if global config already has this path.
+        // In which case do nothing
+        let empty = vec![];
+        let configs = self.clone().repos.unwrap_or(empty);
+        let existing = configs.iter().find(|r| r.path == path);
+
+        Ok(existing.cloned())
+    }
 }
 
 fn ensure_global_config_file(dir: PathBuf) -> Result<()> {
     fs::create_dir_all(dir.clone()).context(format!("Failed to create dir {:?}", dir.clone()))?;
-    let filepath = dir.join("config");
+    let filepath = dir.join("config.toml");
 
     let _ = OpenOptions::new()
         .read(true)
@@ -76,7 +108,7 @@ pub fn read_global_config(dir: PathBuf) -> Result<GlobalConfig> {
     ensure_global_config_file(dir.clone())?;
 
     fs::create_dir_all(dir.clone())?;
-    let filepath = dir.join("config");
+    let filepath = dir.join("config.toml");
     let f = fs::read_to_string(filepath.clone())
         .context(format!("Can't read path {:?}", filepath))
         .unwrap();
@@ -103,7 +135,7 @@ pub fn overwrite_global_config(
     };
 
     fs::create_dir_all(dir.clone())?;
-    let filepath = dir.join("config");
+    let filepath = dir.join("config.toml");
 
     let mut file = OpenOptions::new()
         .read(true)
@@ -140,7 +172,7 @@ mod tests {
             .context("Can't read global config")
             .unwrap();
 
-        assert!(Path::new(&dir).join("config").metadata().is_ok());
+        assert!(Path::new(&dir).join("config.toml").metadata().is_ok());
     }
 
     #[test]
@@ -153,7 +185,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                host: c.host(),
+                control_host: c.control_host(),
+                scheduler_host: c.scheduler_host(),
             }),
             repos: c.repos,
         });
@@ -175,7 +208,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                host: c.host(),
+                control_host: c.control_host(),
+                scheduler_host: c.scheduler_host(),
             }),
             repos: None,
         });

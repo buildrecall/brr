@@ -13,11 +13,13 @@ mod api;
 mod attach;
 mod daemon;
 mod detatch;
+mod git;
 mod global_config;
 mod hash;
 mod invite;
 mod login;
 mod pull;
+mod push;
 mod worker_client;
 
 /// This is a tool that makes your builds faster.
@@ -38,6 +40,9 @@ enum SubCommand {
     Login(login::Login),
 
     #[clap()]
+    Invite(Invite),
+
+    #[clap()]
     Attach(Attach),
 
     #[clap()]
@@ -50,15 +55,16 @@ enum SubCommand {
     Pull(Pull),
 
     #[clap()]
-    Invite(Invite),
-
-    #[clap()]
     #[doc(hidden)]
     Hash(Empty),
 
     #[clap()]
     #[doc(hidden)]
     Daemon(Empty),
+
+    #[clap()]
+    #[doc(hidden)]
+    Push(Empty),
 }
 
 /// Creates an invite link you can give to your team
@@ -86,6 +92,9 @@ struct Detach {}
 /// Use this in CI to deploy your build.
 #[derive(Clap, Debug)]
 struct Pull {}
+
+#[derive(Clap, Debug)]
+struct Push {}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -122,5 +131,6 @@ async fn main() -> Result<()> {
             Ok(())
         }
         SubCommand::Invite(_) => invite::run_invite(get_global_config_dir()?).await,
+        SubCommand::Push(_) => push::run_push(get_global_config_dir()?).await,
     }
 }
