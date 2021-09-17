@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
@@ -16,9 +14,7 @@ pub enum ApiError {
     BadResponse { status: StatusCode, request: String },
 }
 
-const BUILD_RECALL_HOST: &str = "https://buildrecall.com";
-
-use crate::global_config::{self, GlobalConfig};
+use crate::global_config::GlobalConfig;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequestBody {
@@ -187,7 +183,7 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|e| ApiError::FailedToConnect)?;
+            .map_err(|_e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
             return Err(ApiError::Unauthorized.into());

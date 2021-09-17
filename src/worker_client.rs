@@ -49,7 +49,7 @@ pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
 const RECALL_GIT_SCHEME_HTTP: &str = "recall+git";
 const RECALL_GIT_SCHEME_HTTPS: &str = "recalls+git";
 
-fn init_git_transport() {
+pub fn init_git_transport() {
     static INIT: Once = Once::new();
 
     INIT.call_once(move || unsafe {
@@ -144,9 +144,8 @@ async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
     let upgrade_req = hyper::Request::builder()
         .method("POST")
         .uri(url.to_string())
-        //TODO: add bearer auth header
         .header(UPGRADE, "recall-git")
-        .header(AUTHORIZATION, format!("Bearer: {}", access_token))
+        .header(AUTHORIZATION, format!("Bearer {}", access_token))
         .body(Body::empty())
         .context(format!("Failed to construct post for {}", url.to_string()))?;
 

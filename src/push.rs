@@ -1,13 +1,16 @@
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 
-use crate::{git::repo_path, global_config::read_global_config};
-
-const SCHEDULER_DOMAIN: &str = "worker.buildrecall.com";
-const BUILD_RECALL_HOST: &str = "https://buildrecall.com";
+use crate::{
+    git::repo_path,
+    global_config::read_global_config,
+    worker_client::{init, init_git_transport},
+};
 
 pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
     use git2::{PushOptions, RemoteCallbacks};
+
+    init()?;
 
     //  push to non-main branch so that we dont get "branch is currently checked out" error
     //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
