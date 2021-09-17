@@ -1,7 +1,7 @@
 use std::{convert::TryFrom, path::PathBuf, sync::Once};
 
 use crate::{
-    global_config::{get_global_config_dir, read_global_config},
+    global_config::{get_global_config_dir, read_global_config, GlobalConfig},
     Result,
 };
 use anyhow::Context;
@@ -20,7 +20,7 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
-pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
+pub async fn push_to_worker(config: GlobalConfig, repo_path: PathBuf) -> Result<()> {
     use git2::{PushOptions, RemoteCallbacks};
 
     //  push to non-main branch so that we dont get "branch is currently checked out" error
@@ -38,7 +38,7 @@ pub async fn push_to_worker(repo_path: PathBuf) -> Result<()> {
 
             let mut push_opts = PushOptions::new();
             push_opts.remote_callbacks(push_cbs);
-            let mut remote = repo.remote_anonymous("recall+git://localhost:7890/push")?;
+            let mut remote = repo.remote_anonymous(&format!("{}/push", config.scheduler_host()))?;
 
             remote.push(refspecs, Some(&mut push_opts))
         })
@@ -149,7 +149,11 @@ async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
         .body(Body::empty())
         .context(format!("Failed to construct post for {}", url.to_string()))?;
 
-    let res = Client::new().request(upgrade_req).await.context(format!(
+    use hyper_tls::HttpsConnector;
+    let https = HttpsConnector::new();
+    let client = Client::builder().build::<_, hyper::Body>(https);
+
+    let res = client.request(upgrade_req).await.context(format!(
         "Failed to send upgrade request for {}",
         url.to_string()
     ))?;

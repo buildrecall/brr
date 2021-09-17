@@ -177,7 +177,7 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                 {
                     // Run the build!
                     println!("build triggered by {:?} {:?}", relative, repo_path);
-                    match push_to_worker(repo_path.clone()).await {
+                    match push_to_worker(config.clone(), repo_path.clone()).await {
                         Ok(_) => continue,
                         Err(e) => error!("Push failed: {}", e.to_string()),
                     };

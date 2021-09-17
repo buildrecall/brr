@@ -108,6 +108,7 @@ dependencies = [
  "git2",
  "glob",
  "hyper",
+ "hyper-tls",
  "ignore",
  "itertools",
  "notify",
