@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::{git::repo_path, global_config::read_global_config};
 
 const SCHEDULER_DOMAIN: &str = "worker.buildrecall.com";
+const BUILD_RECALL_HOST: &str = "https://buildrecall.com";
 
 pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
     use git2::{PushOptions, RemoteCallbacks};
@@ -39,15 +40,8 @@ pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
 
             let mut push_opts = PushOptions::new();
             push_opts.remote_callbacks(push_cbs);
-            let mut remote = repo.remote_anonymous(
-                format!(
-                    "recall+git://{}/push",
-                    config
-                        .scheduler_host()
-                        .unwrap_or(SCHEDULER_DOMAIN.to_string())
-                )
-                .as_str(),
-            )?;
+            let mut remote =
+                repo.remote_anonymous(format!("{}/push", config.scheduler_host()).as_str())?;
 
             remote.push(refspecs, Some(&mut push_opts))
         })

@@ -77,10 +77,7 @@ impl ApiClient {
     }
 
     pub fn get_host(&self) -> String {
-        self.global_config
-            .clone()
-            .control_host()
-            .unwrap_or(BUILD_RECALL_HOST.into())
+        self.global_config.clone().control_host()
     }
 
     fn token(&self) -> Result<String> {

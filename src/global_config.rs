@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -36,13 +37,27 @@ pub struct GlobalConfig {
     pub repos: Option<Vec<RepoConfig>>,
 }
 
+const BUILDRECALL_HOST: &str = "https://buildrecall.com";
+const SCHEDULER_HOST: &str = "recalls+git://worker.buildrecall.com";
+
 impl GlobalConfig {
-    pub fn control_host(&self) -> Option<String> {
-        self.connection.clone()?.control_host
+    pub fn control_host(&self) -> String {
+        let host = self
+            .connection
+            .clone()
+            .map(|c| c.control_host)
+            .flatten()
+            .unwrap_or(BUILDRECALL_HOST.into());
+
+        host
     }
 
-    pub fn scheduler_host(&self) -> Option<String> {
-        self.connection.clone()?.scheduler_host
+    pub fn scheduler_host(&self) -> String {
+        self.connection
+            .clone()
+            .map(|c| c.scheduler_host)
+            .flatten()
+            .unwrap_or(SCHEDULER_HOST.to_string())
     }
 
     pub fn access_token(&self) -> Option<String> {
@@ -185,8 +200,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                control_host: c.control_host(),
-                scheduler_host: c.scheduler_host(),
+                control_host: Some(c.control_host()),
+                scheduler_host: Some(c.scheduler_host()),
             }),
             repos: c.repos,
         });
@@ -208,8 +223,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                control_host: c.control_host(),
-                scheduler_host: c.scheduler_host(),
+                control_host: Some(c.control_host()),
+                scheduler_host: Some(c.scheduler_host()),
             }),
             repos: None,
         });
