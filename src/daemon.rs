@@ -10,7 +10,7 @@ use std::time::Duration;
 use tracing::error;
 
 use crate::global_config::read_global_config;
-use crate::worker_client::push_to_worker;
+use crate::worker_client::{self, push_to_worker};
 
 #[cfg(target_os = "macos")]
 pub fn create_macos_launch_agent() -> Result<()> {
@@ -94,6 +94,7 @@ pub fn create_macos_launch_agent() -> Result<()> {
 }
 
 pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
+    worker_client::init().unwrap();
     println!("Starting daemon");
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
