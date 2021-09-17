@@ -1,8 +1,12 @@
 use anyhow::{anyhow, Context, Result};
-use std::path::{Path, PathBuf};
+use git2::{IndexAddOption, RepositoryInitOptions};
+use std::{
+    env,
+    path::{self, Path, PathBuf},
+};
 
 use crate::{
-    git::repo_path,
+    git::{repo_path, worktree_path},
     global_config::read_global_config,
     worker_client::{init, init_git_transport},
 };
@@ -25,16 +29,27 @@ pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
         ))?
         .clone();
 
-    let r_path = repo_path(global_config_dir, repoconfig.id).context("Failed to create path")?;
-    let repo_exists = Path::new(&r_path).is_dir();
+    let dot_git_path =
+        repo_path(global_config_dir.clone(), repoconfig.id).context("Failed to create path")?;
+    let repo_exists = Path::new(&dot_git_path).is_dir();
     let repo = match repo_exists {
-        true => git2::Repository::open(&r_path),
-        false => git2::Repository::init_bare(&r_path),
-    }
-    .context("Failed to open repo")?;
+        true => git2::Repository::open(&dot_git_path)
+            .context(format!("Failed to open repo {:?}", dot_git_path))?,
+        false => {
+            let r = git2::Repository::init_bare(dot_git_path.as_path())
+                .context("Failed to init repo")?;
+            r.set_workdir(&worktree_path(global_config_dir, repoconfig.id)?, false)?;
+            r
+        }
+    };
 
     Ok(tokio::runtime::Handle::current()
         .spawn_blocking(move || {
+            let mut i = repo.index()?;
+
+            i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
+            i.write()?;
+
             let mut push_cbs = RemoteCallbacks::new();
             push_cbs.push_update_reference(|ref_, msg| {
                 eprintln!("{:?}", (ref_, msg));

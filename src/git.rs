@@ -67,14 +67,14 @@ pub fn repo_path(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<P
 
 pub fn create_shadow_git_folder(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<()> {
     // Create the .git
-    let new_path = repo_path(global_config_dir, project_id)?;
+    let new_path = repo_path(global_config_dir.clone(), project_id)?;
     let repo = git2::Repository::init_bare(new_path)?;
 
-    // // Populate the work tree
+    // Populate the work tree
     // let tree = repo
     //     .worktree(
     //         "buildrecall",
-    //         path::Path::new(&worktree_path(global_config_dir, project_id)?),
+    //         path::Path::new(&worktree_path(global_config_dir.clone(), project_id)?),
     //         None,
     //     )
     //     .context("Failed to create the git worktree")?;
