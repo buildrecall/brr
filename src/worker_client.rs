@@ -58,6 +58,11 @@ fn init_git_transport() {
         })
         .context("Failed to register the git transport")
         .unwrap();
+        git2::transport::register(RECALL_GIT_SCHEME_HTTPS, |remote| {
+            git2::transport::Transport::smart(remote, false, RecallsGitTransport)
+        })
+        .context("Failed to register the git transport")
+        .unwrap();
     });
 }
 
@@ -69,30 +74,65 @@ impl git2::transport::SmartSubtransport for RecallGitTransport {
         url: &str,
         _action: git2::transport::Service,
     ) -> Result<Box<dyn git2::transport::SmartSubtransportStream>, git2::Error> {
-        use git2::{Error, ErrorClass, ErrorCode};
-
-        trace!("creating transport for url {}", url);
-
-        let uri = hyper::Uri::try_from(url)
-            .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
-
-        let mut parts = uri.into_parts();
-        parts.scheme = Some(Scheme::HTTP);
-        let uri = hyper::Uri::from_parts(parts)
-            .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
-
-        // let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = tokio::runtime::Handle::current();
-        let conn = handle
-            .block_on(git_conn(uri))
-            .map_err(|e| Error::new(ErrorCode::GenericError, ErrorClass::Http, e.to_string()))?;
-
-        Ok(Box::new(conn))
+        git_smart_transport_action(url, _action, Scheme::HTTP)
     }
 
     fn close(&self) -> Result<(), git2::Error> {
         Ok(())
     }
+}
+
+struct RecallsGitTransport;
+impl git2::transport::SmartSubtransport for RecallsGitTransport {
+    fn action(
+        &self,
+        url: &str,
+        _action: git2::transport::Service,
+    ) -> Result<Box<dyn git2::transport::SmartSubtransportStream>, git2::Error> {
+        git_smart_transport_action(url, _action, Scheme::HTTPS)
+    }
+
+    fn close(&self) -> Result<(), git2::Error> {
+        Ok(())
+    }
+}
+
+fn git_smart_transport_action(
+    url: &str,
+    _action: git2::transport::Service,
+    scheme: Scheme,
+) -> Result<Box<dyn git2::transport::SmartSubtransportStream>, git2::Error> {
+    use git2::{Error, ErrorClass, ErrorCode};
+
+    trace!("creating transport for url {}", url);
+
+    let uri = hyper::Uri::try_from(url)
+        .map_err(|e| {
+            error!("{}", &e);
+            e
+        })
+        .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
+
+    let mut parts = uri.into_parts();
+    parts.scheme = Some(scheme);
+    let uri = hyper::Uri::from_parts(parts)
+        .map_err(|e| {
+            error!("{}", &e);
+            e
+        })
+        .map_err(|e| Error::new(ErrorCode::Invalid, ErrorClass::Config, e.to_string()))?;
+
+    // let runtime = tokio::runtime::Runtime::new().unwrap();
+    let handle = tokio::runtime::Handle::current();
+    let conn = handle
+        .block_on(git_conn(uri))
+        .map_err(|e| {
+            error!("{}", &e);
+            e
+        })
+        .map_err(|e| Error::new(ErrorCode::GenericError, ErrorClass::Http, e.to_string()))?;
+
+    Ok(Box::new(conn))
 }
 struct RecallGitConn(hyper::upgrade::Upgraded);
 
