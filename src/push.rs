@@ -36,19 +36,25 @@ pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
         true => git2::Repository::open(&dot_git_path)
             .context(format!("Failed to open repo {:?}", dot_git_path))?,
         false => {
-            let r = git2::Repository::init_bare(dot_git_path.as_path())
-                .context("Failed to init repo")?;
-            r.set_workdir(&worktree_path(global_config_dir, repoconfig.id)?, false)?;
-            r
+            git2::Repository::init_bare(dot_git_path.as_path()).context("Failed to init repo")?
         }
     };
+
+    repo.set_workdir(&worktree_path(global_config_dir, repoconfig.id)?, false)?;
 
     Ok(tokio::runtime::Handle::current()
         .spawn_blocking(move || {
             let mut i = repo.index()?;
 
-            i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
-            i.write()?;
+            let tree = {
+                i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
+                i.write_tree()
+            }?;
+
+            let tree = repo.find_tree(tree)?;
+            let sig = repo.signature()?;
+
+            repo.commit(None, &sig, &sig, "sync with buildrecall", &tree, &[])?;
 
             let mut push_cbs = RemoteCallbacks::new();
             push_cbs.push_update_reference(|ref_, msg| {
