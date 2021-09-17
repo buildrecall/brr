@@ -3,6 +3,7 @@ use std::env;
 use anyhow::{Context, Result};
 use attach::AttachArguments;
 use clap::{AppSettings, Clap};
+#[cfg(target_os = "macos")]
 use daemon::create_macos_launch_agent;
 use global_config::get_global_config_dir;
 
@@ -96,6 +97,7 @@ async fn main() -> Result<()> {
         SubCommand::Login(l) => login::run_login(get_global_config_dir()?, l).await,
         SubCommand::Attach(args) => {
             worker_client::init().context("Failed to start worker client.")?;
+            #[cfg(target_os = "macos")]
             create_macos_launch_agent()
                 .context("Failed to start the Build Recall syncing daemon.")?;
 
