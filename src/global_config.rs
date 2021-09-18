@@ -69,6 +69,22 @@ impl GlobalConfig {
         repos.into_iter().find(|f| f.id == id)
     }
 
+    pub fn repo_config_of_pathbuf(&self, buf: PathBuf) -> Result<Option<RepoConfig>> {
+        let pieces = buf
+            .components()
+            .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
+            .collect::<Vec<_>>();
+        let folder = pieces[pieces.len() - 1].clone();
+
+        // check if global config already has this path.
+        // In which case do nothing
+        let empty = vec![];
+        let configs = self.clone().repos.unwrap_or(empty);
+        let existing = configs.iter().find(|r| r.path == path);
+
+        Ok(existing.cloned())
+    }
+
     pub fn repo_config_of_current_dir(&self) -> Result<Option<RepoConfig>> {
         let path = env::current_dir()?;
         let pieces = path
