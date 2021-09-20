@@ -17,51 +17,6 @@ use uuid::Uuid;
 
 use crate::global_config::{get_global_config_dir, read_global_config};
 
-fn copy_folder<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> Result<()> {
-    let mut stack = Vec::new();
-    stack.push(PathBuf::from(from.as_ref()));
-
-    let output_root = PathBuf::from(to.as_ref());
-    let input_root = PathBuf::from(from.as_ref()).components().count();
-
-    while let Some(working_path) = stack.pop() {
-        let src: PathBuf = working_path.components().skip(input_root).collect();
-
-        // Create a destination if missing
-        let dest = if src.components().count() == 0 {
-            output_root.clone()
-        } else {
-            output_root.join(&src)
-        };
-        if fs::metadata(&dest).is_err() {
-            fs::create_dir_all(&dest)?;
-        }
-
-        for entry in fs::read_dir(working_path.clone())
-            .context(format!("Failed to read dir {:?}", working_path))?
-        {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else {
-                match path.file_name() {
-                    Some(filename) => {
-                        let dest_path = dest.join(filename);
-                        fs::copy(&path, &dest_path).context(format!(
-                            "Failed to copy file from {:?} to {:?}",
-                            path, dest_path
-                        ))?;
-                    }
-                    None => return Err(anyhow!("failed to read file_name: {:?}", path)),
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
 fn worktree_path(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<PathBuf> {
     let config = read_global_config(global_config_dir.clone())?;
     let repoconfig = config
@@ -112,7 +67,7 @@ impl RecallGit {
     pub fn create_shadow_git_folder(&self, project_id: uuid::Uuid) -> Result<()> {
         // Create the .git
         let new_path = repo_path(self.global_config_dir.clone(), project_id)?;
-        let repo = git2::Repository::init_bare(new_path)?;
+        git2::Repository::init_bare(new_path)?;
 
         Ok(())
     }
@@ -406,7 +361,6 @@ mod test {
     struct TestGitRemote {}
     impl TestGitRemote {
         async fn start() {
-            use hyper::upgrade::{OnUpgrade, Upgraded};
             let app = axum::Router::new().route("/", axum::handler::post(handle_test_git_conn));
 
             axum::Server::bind(&"127.0.0.1:7890".parse().unwrap())

@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -94,7 +93,6 @@ impl GlobalConfig {
             .components()
             .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
             .collect::<Vec<_>>();
-        let folder = pieces[pieces.len() - 1].clone();
 
         // check if global config already has this path.
         // In which case do nothing

@@ -6,9 +6,7 @@ use dialoguer::Confirm;
 use crate::{
     api::{ApiClient, BuildRecall, Project},
     git,
-    global_config::{
-        overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig, RepoConfig,
-    },
+    global_config::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
 };
 
 pub struct AttachArguments {
