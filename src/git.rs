@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use git2::{PushOptions, RemoteCallbacks};
+use git2::{IndexAddOption, PushOptions, RemoteCallbacks};
 use uuid::Uuid;
 
 use crate::{global_config::read_global_config, worker_client::init_git_transport};
