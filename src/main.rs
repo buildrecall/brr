@@ -20,7 +20,6 @@ mod invite;
 mod login;
 mod pull;
 mod push;
-mod worker_client;
 
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
@@ -105,7 +104,6 @@ async fn main() -> Result<()> {
     match opts.subcmd {
         SubCommand::Login(l) => login::run_login(get_global_config_dir()?, l).await,
         SubCommand::Attach(args) => {
-            worker_client::init().context("Failed to start worker client.")?;
             #[cfg(target_os = "macos")]
             create_macos_launch_agent()
                 .context("Failed to start the Build Recall syncing daemon.")?;

@@ -5,7 +5,7 @@ use dialoguer::Confirm;
 
 use crate::{
     api::{ApiClient, BuildRecall, Project},
-    git::create_shadow_git_folder,
+    git,
     global_config::{
         overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig, RepoConfig,
     },
@@ -103,7 +103,8 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
     .context("Failed to store this project in the global config file")?;
 
     // create a .git folder for brr to use that doesn't mess with the user's git.
-    create_shadow_git_folder(global_config_dir.clone(), project_config_id)
+    let g = git::RecallGit::new(global_config_dir.clone())?;
+    g.create_shadow_git_folder(project_config_id)
         .context(format!("Failed to create a shadow git folder (used to sync files without messing with your own git setup) in {:?}/{}", global_config_dir, ".gits"))?;
 
     Ok(())

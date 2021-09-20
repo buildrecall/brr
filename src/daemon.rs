@@ -9,8 +9,8 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 use tracing::error;
 
+use crate::git::RecallGit;
 use crate::global_config::read_global_config;
-use crate::worker_client::{self, push_to_worker};
 
 #[cfg(target_os = "macos")]
 pub fn create_macos_launch_agent() -> Result<()> {
@@ -94,8 +94,9 @@ pub fn create_macos_launch_agent() -> Result<()> {
 }
 
 pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
-    worker_client::init().unwrap();
     println!("Starting daemon");
+
+    let g = RecallGit::new(global_config_dir.clone())?;
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
 
@@ -138,50 +139,16 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                     }
                 };
 
-                let repo = config
-                    .repos
-                    .clone()
-                    .unwrap_or(vec![])
-                    .iter()
-                    .map(|r| r.path.clone())
-                    .find(|c| path.clone().starts_with(c));
+                let maybe_repo = config.repo_config_of_pathbuf(path.clone())?;
+                let repo = match maybe_repo {
+                    Some(r) => r,
+                    None => return Err(anyhow!("expected to find a repo {:?}", path)),
+                };
 
-                // This would mean that we're getting events for a repo we shouldn't
-                // be watching; so we should consider this an error.
-                if repo.is_none() {
-                    return Err(anyhow!(
-                        "Somehow receiving events for a repo we didn't intend to watch: {:?}",
-                        path.clone()
-                    ));
-                }
-
-                let repo_path = &repo.unwrap();
-                let maybe_ig = ignores.get(&repo_path.clone());
-
-                // if there's no gitignore, we should error
-                if maybe_ig.is_none() {
-                    return Err(anyhow!(
-                        "Unexpectedly did not find a gitignore at {:?}",
-                        repo_path.clone()
-                    ));
-                }
-
-                let relative = path.strip_prefix(repo_path)?;
-                let is_git = relative.starts_with(".git");
-                let ig = maybe_ig.unwrap();
-                if ig
-                    .matched_path_or_any_parents(&relative.clone(), false)
-                    .is_ignore()
-                    == false
-                    && !is_git
-                {
-                    // Run the build!
-                    println!("build triggered by {:?} {:?}", relative, repo_path);
-                    match push_to_worker(config.clone(), repo_path.clone()).await {
-                        Ok(_) => continue,
-                        Err(e) => error!("Push failed: {}", e.to_string()),
-                    };
-                }
+                match g.push_project(repo.id).await {
+                    Ok(_) => continue,
+                    Err(e) => error!("Push failed: {}", e.to_string()),
+                };
             }
             Err(e) => println!("watch error: {:?}", e),
         }
