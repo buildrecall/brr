@@ -80,7 +80,7 @@ impl GlobalConfig {
         // In which case do nothing
         let empty = vec![];
         let configs = self.clone().repos.unwrap_or(empty);
-        let existing = configs.iter().find(|r| r.path == path);
+        let existing = configs.iter().find(|r| r.path == buf);
 
         Ok(existing.cloned())
     }
