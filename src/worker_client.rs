@@ -4,11 +4,11 @@ use crate::{
     global_config::{get_global_config_dir, read_global_config, GlobalConfig},
     Result,
 };
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use hyper::{
     header::{AUTHORIZATION, UPGRADE},
     http::uri::Scheme,
-    Body, Client,
+    Body, Client, StatusCode,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
@@ -157,6 +157,10 @@ async fn git_conn(url: hyper::Uri) -> Result<RecallGitConn> {
         "Failed to send upgrade request for {}",
         url.to_string()
     ))?;
+
+    if res.status().eq(&StatusCode::UNAUTHORIZED) {
+        return Err(anyhow!("Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup".to_string()));
+    }
 
     let conn = hyper::upgrade::on(res)
         .await

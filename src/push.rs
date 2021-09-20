@@ -43,18 +43,23 @@ pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
     repo.set_workdir(&worktree_path(global_config_dir, repoconfig.id)?, false)?;
 
     Ok(tokio::runtime::Handle::current()
-        .spawn_blocking(move || {
-            let mut i = repo.index()?;
+        .spawn_blocking(move || -> Result<_> {
+            let mut i = repo.index().context("Failed to get a git index")?;
 
             let tree = {
                 i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
                 i.write_tree()
             }?;
 
-            let tree = repo.find_tree(tree)?;
-            let sig = repo.signature()?;
+            let tree = repo
+                .find_tree(tree)
+                .context("Failed to find a git tree in this repository")?;
+            let sig = repo.signature().context(
+                "failed to create a git signature (needed to make a commit in the shadow git repo)",
+            )?;
 
-            repo.commit(None, &sig, &sig, "sync with buildrecall", &tree, &[])?;
+            repo.commit(None, &sig, &sig, "sync with buildrecall", &tree, &[])
+                .context("Failed to commit to the shadow git project")?;
 
             let mut push_cbs = RemoteCallbacks::new();
             push_cbs.push_update_reference(|ref_, msg| {
@@ -62,12 +67,21 @@ pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
                 Ok(())
             });
 
+            let remote_url = format!("{}/push", config.scheduler_host());
             let mut push_opts = PushOptions::new();
             push_opts.remote_callbacks(push_cbs);
-            let mut remote =
-                repo.remote_anonymous(format!("{}/push", config.scheduler_host()).as_str())?;
+            let mut remote = repo
+                .remote_anonymous(remote_url.clone().as_str())
+                .context("Failed to create an anonymous remote in the shadow git project")?;
 
-            remote.push(refspecs, Some(&mut push_opts))
+            remote
+                .push(refspecs, Some(&mut push_opts))
+                .context(format!(
+                    "Failed to push to the shadow git project with remote: {}",
+                    remote_url
+                ))?;
+
+            Ok(())
         })
         .await
         .context("Failed to spawn the tokio runtime")??)

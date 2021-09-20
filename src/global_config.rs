@@ -53,11 +53,14 @@ impl GlobalConfig {
     }
 
     pub fn scheduler_host(&self) -> String {
-        self.connection
+        let host = self
+            .connection
             .clone()
             .map(|c| c.scheduler_host)
             .flatten()
-            .unwrap_or(SCHEDULER_HOST.to_string())
+            .unwrap_or(SCHEDULER_HOST.to_string());
+
+        host
     }
 
     pub fn access_token(&self) -> Option<String> {

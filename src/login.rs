@@ -1,5 +1,5 @@
 use crate::{api, global_config::ConnectionConfig};
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use clap::Clap;
 use std::{path::PathBuf, process::Command};
 
