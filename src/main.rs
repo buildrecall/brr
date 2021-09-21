@@ -90,7 +90,10 @@ struct Detach {}
 ///
 /// Use this in CI to deploy your build.
 #[derive(Clap, Debug)]
-struct Pull {}
+struct Pull {
+    /// The name of the project, the same one you "attached".
+    name: String,
+}
 
 #[derive(Clap, Debug)]
 struct Push {}
@@ -116,7 +119,7 @@ async fn main() -> Result<()> {
         }
         SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
         SubCommand::Logs(_) => todo!(),
-        SubCommand::Pull(_) => pull::run_pull(get_global_config_dir()?).await,
+        SubCommand::Pull(a) => pull::run_pull(get_global_config_dir()?, a.name).await,
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
         SubCommand::Hash(_) => {
             let curr = env::current_dir()?.as_path().to_path_buf();

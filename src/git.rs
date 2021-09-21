@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use git2::{IndexAddOption, PushOptions, RemoteCallbacks};
+use git2::{IndexAddOption, Oid, PushOptions, RemoteCallbacks, Repository};
 use hyper::{
     header::{AUTHORIZATION, UPGRADE},
     http::uri::Scheme,
@@ -72,18 +72,46 @@ impl RecallGit {
         Ok(())
     }
 
-    pub async fn push_project(&self, project_id: Uuid) -> Result<()> {
+    fn get_repo_by_project(&self, project_id: uuid::Uuid) -> Result<Repository> {
         let config = read_global_config(self.global_config_dir.clone())?;
         let dot_git_path = repo_path(self.global_config_dir.clone(), project_id.clone())
             .context("Failed to create path")?;
 
         let repo_exists = Path::new(&dot_git_path).is_dir();
-        let repo = match repo_exists {
+        match repo_exists {
             true => git2::Repository::open(&dot_git_path)
-                .context(format!("Failed to open repo {:?}", dot_git_path))?,
-            false => git2::Repository::init_bare(dot_git_path.as_path())
-                .context("Failed to init repo")?,
-        };
+                .context(format!("Failed to open repo {:?}", dot_git_path)),
+            false => {
+                git2::Repository::init_bare(dot_git_path.as_path()).context("Failed to init repo")
+            }
+        }
+    }
+
+    pub async fn hash_folder(&self, project_id: uuid::Uuid) -> Result<Oid> {
+        let repo = self
+            .get_repo_by_project(project_id)
+            .context("Failed to get git repository")?;
+
+        let mut i = repo.index().context("Failed to get a git index")?;
+
+        let hash = {
+            i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+                .context(
+                    "Failed to stage changes in shadow git repo (required to compute git hash)",
+                )?;
+            i.write_tree()
+        }
+        .context("Failed to hash git repository")?;
+
+        Ok(hash)
+    }
+
+    pub async fn push_project(&self, project_id: Uuid) -> Result<()> {
+        let config = read_global_config(self.global_config_dir.clone())?;
+
+        let repo = self
+            .get_repo_by_project(project_id)
+            .context("Failed to get git repository")?;
 
         repo.set_workdir(
             &worktree_path(self.global_config_dir.clone(), project_id)?,

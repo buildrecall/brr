@@ -89,10 +89,6 @@ impl GlobalConfig {
 
     pub fn repo_config_of_current_dir(&self) -> Result<Option<RepoConfig>> {
         let path = env::current_dir()?;
-        let pieces = path
-            .components()
-            .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
-            .collect::<Vec<_>>();
 
         // check if global config already has this path.
         // In which case do nothing

@@ -36,9 +36,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
 
     // check if global config already has this path.
     // In which case do nothing
-    let empty = vec![];
-    let configs = global_config.clone().repos.unwrap_or(empty);
-    let existing = configs.iter().find(|r| r.path == path);
+    let existing = global_config.repo_config_of_pathbuf(path.clone())?;
 
     let projects = client.list_projects().await?;
 
