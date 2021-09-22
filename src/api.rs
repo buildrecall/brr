@@ -1,6 +1,6 @@
 use std::{fs, io::Read};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -10,8 +10,8 @@ use thiserror::Error;
 pub enum ApiError {
     #[error("Something is wrong with your access token, perhaps you've been logged out by the server? You can login again at https://buildrecall.com/setup")]
     Unauthorized,
-    #[error("Failed to connect to Build Recall at {host:?}. Perhaps your internet is down, or Build Recall is having an outage.")]
-    FailedToConnect { host: String },
+    #[error("Failed to connect to Build Recall at {host:?}. Perhaps your internet is down, or Build Recall is having an outage.\n\n{err:?}")]
+    FailedToConnect { host: String, err: reqwest::Error },
     #[error("Failed to '{request:?}' got a status code of: {status:?})")]
     BadResponse { status: StatusCode, request: String },
 }
@@ -99,8 +99,9 @@ impl BuildRecall for ApiClient {
             .json(&body)
             .send()
             .await
-            .map_err(|_e| ApiError::FailedToConnect {
+            .map_err(|e| ApiError::FailedToConnect {
                 host: self.get_control_host(),
+                err: e,
             })?;
 
         if resp.status() == 401 {
@@ -136,8 +137,9 @@ impl BuildRecall for ApiClient {
                     .get(format!("{}/pull/{}", scheduler_host.clone(), &hash))
                     .bearer_auth(tok)
                     .send()
-                    .map_err(|_e| ApiError::FailedToConnect {
+                    .map_err(|e| ApiError::FailedToConnect {
                         host: scheduler_host.clone(),
+                        err: e,
                     })?;
 
                 if resp.status() == 401 {
@@ -188,8 +190,9 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|_e| ApiError::FailedToConnect {
+            .map_err(|e| ApiError::FailedToConnect {
                 host: self.get_control_host(),
+                err: e,
             })?;
 
         if resp.status() == 401 {
@@ -220,8 +223,9 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|_e| ApiError::FailedToConnect {
+            .map_err(|e| ApiError::FailedToConnect {
                 host: self.get_control_host(),
+                err: e,
             })?;
 
         if resp.status() == 401 {
@@ -252,8 +256,9 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|_e| ApiError::FailedToConnect {
+            .map_err(|e| ApiError::FailedToConnect {
                 host: self.get_control_host(),
+                err: e,
             })?;
 
         if resp.status() == 401 {
