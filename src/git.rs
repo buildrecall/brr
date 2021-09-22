@@ -67,6 +67,7 @@ impl RecallGit {
     pub fn create_shadow_git_folder(&self, project_id: uuid::Uuid) -> Result<()> {
         // Create the .git
         let new_path = repo_path(self.global_config_dir.clone(), project_id)?;
+        std::fs::create_dir_all(&new_path)?;
         git2::Repository::init_bare(new_path)?;
 
         Ok(())
@@ -79,7 +80,7 @@ impl RecallGit {
 
         let repo_exists = Path::new(&dot_git_path).is_dir();
         match repo_exists {
-            true => git2::Repository::open(&dot_git_path)
+            true => git2::Repository::open_bare(&dot_git_path)
                 .context(format!("Failed to open repo {:?}", dot_git_path)),
             false => {
                 git2::Repository::init_bare(dot_git_path.as_path()).context("Failed to init repo")
@@ -134,8 +135,19 @@ impl RecallGit {
                 "failed to create a git signature (needed to make a commit in the shadow git repo)",
             )?;
 
-                repo.commit(None, &sig, &sig, "sync with buildrecall", &tree, &[])
-                    .context("Failed to commit to the shadow git project")?;
+                //  update HEAD so that push works correctly
+                let head = repo.head()?.peel_to_commit().ok();
+                let parents = head.map(|h| vec![h]).unwrap_or(vec![]);
+                let parents: Vec<&git2::Commit> = parents.iter().collect();
+                repo.commit(
+                    Some("HEAD"),
+                    &sig,
+                    &sig,
+                    "sync with buildrecall",
+                    &tree,
+                    &parents,
+                )
+                .context("Failed to commit to the shadow git project")?;
 
                 let mut push_cbs = RemoteCallbacks::new();
                 push_cbs.push_update_reference(|ref_, msg| {
