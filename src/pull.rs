@@ -2,12 +2,12 @@ use anyhow::{anyhow, Context, Result};
 use std::{env, path::PathBuf};
 
 use crate::{
-    api::{ApiClient, BuildRecall, Project},
+    api::{self, ApiClient, BuildRecall, Project},
+    config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
     git,
-    global_config::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
 };
 
-pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Result<()> {
+pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Result<uuid::Uuid> {
     let global_config = read_global_config(global_config_dir.clone()).context(format!(
         "Failed to read the global config file: {:?}",
         global_config_dir
@@ -20,21 +20,14 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
     }
 
     let path = env::current_dir()?;
-    let pieces = path
-        .components()
-        .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
-        .collect::<Vec<_>>();
-    let folder = pieces[pieces.len() - 1].clone();
-
-    let projects = client.list_projects().await?;
-
     let existing = global_config.repo_config_of_pathbuf(path.clone())?;
     if existing.is_some() {
-        return Ok(()); // skip if we already have something in our config
+        return Ok(existing.unwrap().id); // skip if we already have something in our config
     }
 
+    let projects = client.list_projects().await?;
     let maybe_project = projects.iter().find(|p| p.slug == slug.clone());
-    let project: Result<Project> = match maybe_project {
+    let project_res: Result<Project> = match maybe_project {
         Some(p) => Ok(p.clone()),
         None => {
             let p = client
@@ -45,9 +38,10 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
             Ok(p)
         }
     };
+    let project = project_res?;
 
     // create the project in the local config
-    let project_config_id = project?.clone().id.clone();
+    let project_config_id = project.clone().id.clone();
     overwrite_global_config(global_config_dir.clone(), move |c| {
         let mut repos: Vec<RepoConfig> = vec![RepoConfig {
             path: path,
@@ -68,14 +62,28 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
     g.create_shadow_git_folder(project_config_id)
         .context(format!("Failed to create a shadow git folder (used to sync files without messing with your own git setup) in {:?}/{}", global_config_dir, ".gits"))?;
 
-    Ok(())
+    Ok(project.id)
 }
 
 pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
+    let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
+        .await
+        .context(format!(
+            "Failed to attach the project '{}' to this folder",
+            slug
+        ))?;
+
     let config = read_global_config(global_config_dir.clone())?;
     let g = git::RecallGit::new(global_config_dir.clone())?;
 
-    // Send hash to build farm to request build
+    let oid = g
+        .hash_folder(project_id)
+        .await
+        .context("Failed to hash this folder as a project")?;
+
+    let client = ApiClient::new(config);
+
+    // TODO pull
 
     Ok(())
 }

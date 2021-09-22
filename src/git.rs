@@ -7,7 +7,6 @@ use hyper::{
 };
 use std::{
     convert::TryFrom,
-    fs,
     path::{self, Path, PathBuf},
     sync::Once,
 };
@@ -15,7 +14,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
 
-use crate::global_config::{get_global_config_dir, read_global_config};
+use crate::config_global::get_global_config_dir;
+use crate::config_global::read_global_config;
 
 fn worktree_path(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<PathBuf> {
     let config = read_global_config(global_config_dir.clone())?;

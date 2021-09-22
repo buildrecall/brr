@@ -1,3 +1,5 @@
+use std::{fs, io::Read};
+
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
@@ -14,7 +16,7 @@ pub enum ApiError {
     BadResponse { status: StatusCode, request: String },
 }
 
-use crate::global_config::GlobalConfig;
+use crate::config_global::GlobalConfig;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequestBody {
@@ -60,6 +62,7 @@ pub trait BuildRecall {
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
+    fn pull_project(&self, hash: String) -> Result<()>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -72,8 +75,12 @@ impl ApiClient {
         ApiClient { global_config }
     }
 
-    pub fn get_host(&self) -> String {
+    pub fn get_control_host(&self) -> String {
         self.global_config.clone().control_host()
+    }
+
+    pub fn get_scheduler_host(&self) -> String {
+        self.global_config.clone().scheduler_host()
     }
 
     fn token(&self) -> Result<String> {
@@ -88,7 +95,7 @@ impl BuildRecall for ApiClient {
         let client = reqwest::Client::new();
 
         let resp = client
-            .post(format!("{}/v1/cli/login", self.get_host()))
+            .post(format!("{}/v1/cli/login", self.get_control_host()))
             .json(&body)
             .send()
             .await
@@ -102,7 +109,7 @@ impl BuildRecall for ApiClient {
         }
         if !resp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("POST {}/v1/cli/login", self.get_host()),
+                request: format!("POST {}/v1/cli/login", self.get_control_host()),
                 status: resp.status(),
             }
             .into());
@@ -114,12 +121,59 @@ impl BuildRecall for ApiClient {
         Ok(result)
     }
 
+    fn pull_project(&self, hash: String) -> Result<()> {
+        let client = reqwest::blocking::Client::new();
+        let tok = self.token()?;
+
+        let mut resp = client
+            .get(format!("{}/pull/{}", self.get_scheduler_host(), &hash))
+            .bearer_auth(tok)
+            .send()
+            .map_err(|e| ApiError::FailedToConnect)?;
+
+        if resp.status() == 401 {
+            return Err(ApiError::Unauthorized.into());
+        }
+
+        if !resp.status().is_success() {
+            return Err(ApiError::BadResponse {
+                request: format!("GET {}/pull/{}", self.get_scheduler_host(), &hash),
+                status: resp.status(),
+            }
+            .into());
+        }
+
+        let mut input = brotli::Decompressor::new(&mut resp, 4096);
+        let mut a = tar::Archive::new(input);
+
+        for entry in a
+            .entries()
+            .context("Failed to list entries of tar archive")?
+        {
+            let mut file = entry.context("Can't process an entry of tar archive")?;
+
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)?;
+
+            let path = file
+                .header()
+                .path()
+                .context("Failed to parse path of archived file")?
+                .clone();
+
+            fs::write(path.clone(), buf)
+                .context(format!("Failed to write to file at {:?}", path))?;
+        }
+
+        Ok(())
+    }
+
     async fn list_projects(&self) -> Result<Vec<Project>> {
         let client = reqwest::Client::new();
         let tok = self.token()?;
 
         let resp = client
-            .get(format!("{}/v1/cli/projects", self.get_host()))
+            .get(format!("{}/v1/cli/projects", self.get_control_host()))
             .bearer_auth(tok)
             .send()
             .await
@@ -130,7 +184,7 @@ impl BuildRecall for ApiClient {
         }
         if !resp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("GET {}/v1/cli/projects", self.get_host()),
+                request: format!("GET {}/v1/cli/projects", self.get_control_host()),
                 status: resp.status(),
             }
             .into());
@@ -148,7 +202,7 @@ impl BuildRecall for ApiClient {
         let tok = self.token()?;
 
         let resp = client
-            .post(format!("{}/v1/cli/projects", self.get_host()))
+            .post(format!("{}/v1/cli/projects", self.get_control_host()))
             .json(&CreateProjectBody { slug: slug })
             .bearer_auth(tok)
             .send()
@@ -160,7 +214,7 @@ impl BuildRecall for ApiClient {
         }
         if !resp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("POST {}/v1/cli/projects", self.get_host()),
+                request: format!("POST {}/v1/cli/projects", self.get_control_host()),
                 status: resp.status(),
             }
             .into());
@@ -178,7 +232,7 @@ impl BuildRecall for ApiClient {
         let tok = self.token()?;
 
         let resp = client
-            .post(format!("{}/v1/cli/invites", self.get_host()))
+            .post(format!("{}/v1/cli/invites", self.get_control_host()))
             .json(&CreateInviteBody {})
             .bearer_auth(tok)
             .send()
@@ -190,7 +244,7 @@ impl BuildRecall for ApiClient {
         }
         if !resp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("POST {}/v1/cli/invites", self.get_host()),
+                request: format!("POST {}/v1/cli/invites", self.get_control_host()),
                 status: resp.status(),
             }
             .into());

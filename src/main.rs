@@ -5,16 +5,16 @@ use attach::AttachArguments;
 use clap::{AppSettings, Clap};
 #[cfg(target_os = "macos")]
 use daemon::create_macos_launch_agent;
-use global_config::get_global_config_dir;
 
-use crate::hash::list_non_ignored_files_in_dir;
+use crate::{config_global::get_global_config_dir, hash::list_non_ignored_files_in_dir};
 
 mod api;
 mod attach;
+mod config_global;
+mod config_local;
 mod daemon;
 mod detatch;
 mod git;
-mod global_config;
 mod hash;
 mod invite;
 mod login;

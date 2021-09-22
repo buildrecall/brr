@@ -9,8 +9,8 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 use tracing::error;
 
+use crate::config_global::read_global_config;
 use crate::git::RecallGit;
-use crate::global_config::read_global_config;
 
 #[cfg(target_os = "macos")]
 pub fn create_macos_launch_agent() -> Result<()> {

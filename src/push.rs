@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 
-use crate::{git::RecallGit, global_config::read_global_config};
+use crate::{config_global::read_global_config, git::RecallGit};
 
 pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
     let config = read_global_config(global_config_dir.clone())?;

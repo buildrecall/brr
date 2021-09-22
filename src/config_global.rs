@@ -186,7 +186,7 @@ mod tests {
     use anyhow::Context;
     use tempdir::TempDir;
 
-    use crate::global_config::{
+    use crate::config_global::{
         overwrite_global_config, read_global_config, ConnectionConfig, GlobalConfig,
     };
 

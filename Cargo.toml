@@ -14,7 +14,7 @@ clap = "3.0.0-beta.4"
 git2 = "0.13.21"
 hyper = "0.14.12"
 notify = "4.0.17"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
+reqwest = { version = "0.11", features = ["blocking", "stream", "json"] }
 tokio = { version = "1.11.0", features = ["full"] }
 serde_json = "1.0.66"
 serde = { version = "1.0.127", features = ["derive"] }
@@ -37,6 +37,8 @@ futures = "0.3.17"
 walkdir = "2.3.2"
 thiserror = "1.0"
 hyper-tls = "0.5.0"
+brotli = "3.3.2"
+tar = "0.4.37"
 
 
 [dev-dependencies]

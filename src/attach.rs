@@ -5,8 +5,8 @@ use dialoguer::Confirm;
 
 use crate::{
     api::{ApiClient, BuildRecall, Project},
+    config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
     git,
-    global_config::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
 };
 
 pub struct AttachArguments {

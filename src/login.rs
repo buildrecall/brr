@@ -1,11 +1,11 @@
-use crate::{api, global_config::ConnectionConfig};
+use crate::{api, config_global::ConnectionConfig};
 use anyhow::Result;
 use clap::Clap;
 use std::{path::PathBuf, process::Command};
 
 use crate::{
     api::{ApiClient, BuildRecall},
-    global_config::{
+    config_global::{
         get_global_config_dir, overwrite_global_config, read_global_config, GlobalConfig,
     },
 };

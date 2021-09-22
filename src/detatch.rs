@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::{env, path::PathBuf};
 
-use crate::global_config::{overwrite_global_config, GlobalConfig, RepoConfig};
+use crate::config_global::{overwrite_global_config, GlobalConfig, RepoConfig};
 
 pub async fn run_detach(global_config_dir: PathBuf) -> Result<()> {
     let path = env::current_dir()?;

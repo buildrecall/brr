@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::{
     api::{ApiClient, BuildRecall},
-    global_config::read_global_config,
+    config_global::read_global_config,
 };
 
 pub async fn run_invite(global_config_dir: PathBuf) -> Result<()> {
