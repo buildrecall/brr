@@ -122,14 +122,18 @@ impl RecallGit {
             .get_repo_by_project(project_id)
             .context("Failed to get git repository")?;
 
-        Ok(tokio::runtime::Handle::current()
+        let handle = tokio::runtime::Handle::current();
+
+        Ok(handle
             .spawn_blocking(move || -> Result<_> {
                 let mut i = repo.index().context("Failed to get a git index")?;
 
                 let tree = {
-                    i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
+                    i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+                        .context("Failed to index add all")?;
                     i.write_tree()
-                }?;
+                }
+                .context("failed to generate a git tree")?;
 
                 let tree = repo
                     .find_tree(tree)
@@ -139,7 +143,7 @@ impl RecallGit {
             )?;
 
                 //  update HEAD so that push works correctly
-                let head = repo.head()?.peel_to_commit().ok();
+                let head = repo.head().ok().map(|h| h.peel_to_commit().ok()).flatten();
                 let parents = head.map(|h| vec![h]).unwrap_or(vec![]);
                 let parents: Vec<&git2::Commit> = parents.iter().collect();
                 repo.commit(
@@ -158,7 +162,7 @@ impl RecallGit {
                     Ok(())
                 });
 
-                let remote_url = format!("{}/push", config.scheduler_host());
+                let remote_url = format!("{}/push", config.git_host());
                 let mut push_opts = PushOptions::new();
                 push_opts.remote_callbacks(push_cbs);
                 let mut remote = repo
@@ -178,7 +182,8 @@ impl RecallGit {
                 Ok(())
             })
             .await
-            .context("Failed to spawn the tokio runtime")??)
+            .context("Failed to spawn the tokio runtime")?
+            .context("Failed to git push")?)
     }
 }
 
