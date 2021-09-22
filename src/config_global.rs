@@ -72,12 +72,6 @@ impl GlobalConfig {
     }
 
     pub fn repo_config_of_pathbuf(&self, buf: PathBuf) -> Result<Option<RepoConfig>> {
-        let pieces = buf
-            .components()
-            .map(|comp| comp.as_os_str().to_str().unwrap_or("").to_string())
-            .collect::<Vec<_>>();
-        let folder = pieces[pieces.len() - 1].clone();
-
         // check if global config already has this path.
         // In which case do nothing
         let empty = vec![];

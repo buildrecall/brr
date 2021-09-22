@@ -62,7 +62,7 @@ pub trait BuildRecall {
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
-    fn pull_project(&self, hash: String) -> Result<()>;
+    async fn pull_project(&self, hash: String) -> Result<()>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -99,7 +99,7 @@ impl BuildRecall for ApiClient {
             .json(&body)
             .send()
             .await
-            .map_err(|e| ApiError::FailedToConnect)?;
+            .map_err(|_e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
             return Err(anyhow!(
@@ -121,51 +121,58 @@ impl BuildRecall for ApiClient {
         Ok(result)
     }
 
-    fn pull_project(&self, hash: String) -> Result<()> {
-        let client = reqwest::blocking::Client::new();
-        let tok = self.token()?;
+    async fn pull_project(&self, hash: String) -> Result<()> {
+        let handle = tokio::runtime::Handle::current();
 
-        let mut resp = client
-            .get(format!("{}/pull/{}", self.get_scheduler_host(), &hash))
-            .bearer_auth(tok)
-            .send()
-            .map_err(|e| ApiError::FailedToConnect)?;
+        let tok = self.token()?.clone();
+        let scheduler_host = self.get_scheduler_host().clone();
+        handle
+            .spawn_blocking(move || -> Result<()> {
+                let client = reqwest::blocking::Client::new();
 
-        if resp.status() == 401 {
-            return Err(ApiError::Unauthorized.into());
-        }
+                let mut resp = client
+                    .get(format!("{}/pull/{}", scheduler_host, &hash))
+                    .bearer_auth(tok)
+                    .send()
+                    .map_err(|_e| ApiError::FailedToConnect)?;
 
-        if !resp.status().is_success() {
-            return Err(ApiError::BadResponse {
-                request: format!("GET {}/pull/{}", self.get_scheduler_host(), &hash),
-                status: resp.status(),
-            }
-            .into());
-        }
+                if resp.status() == 401 {
+                    return Err(ApiError::Unauthorized.into());
+                }
 
-        let mut input = brotli::Decompressor::new(&mut resp, 4096);
-        let mut a = tar::Archive::new(input);
+                if !resp.status().is_success() {
+                    return Err(ApiError::BadResponse {
+                        request: format!("GET {}/pull/{}", scheduler_host, &hash),
+                        status: resp.status(),
+                    }
+                    .into());
+                }
 
-        for entry in a
-            .entries()
-            .context("Failed to list entries of tar archive")?
-        {
-            let mut file = entry.context("Can't process an entry of tar archive")?;
+                let input = brotli::Decompressor::new(&mut resp, 4096);
+                let mut a = tar::Archive::new(input);
 
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf)?;
+                for entry in a
+                    .entries()
+                    .context("Failed to list entries of tar archive")?
+                {
+                    let mut file = entry.context("Can't process an entry of tar archive")?;
 
-            let path = file
-                .header()
-                .path()
-                .context("Failed to parse path of archived file")?
-                .clone();
+                    let mut buf = Vec::new();
+                    file.read_to_end(&mut buf)?;
 
-            fs::write(path.clone(), buf)
-                .context(format!("Failed to write to file at {:?}", path))?;
-        }
+                    let path = file
+                        .header()
+                        .path()
+                        .context("Failed to parse path of archived file")?
+                        .clone();
 
-        Ok(())
+                    fs::write(path.clone(), buf)
+                        .context(format!("Failed to write to file at {:?}", path))?;
+                }
+
+                Ok(())
+            })
+            .await?
     }
 
     async fn list_projects(&self) -> Result<Vec<Project>> {
@@ -177,7 +184,7 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|e| ApiError::FailedToConnect)?;
+            .map_err(|_e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
             return Err(ApiError::Unauthorized.into());
@@ -207,7 +214,7 @@ impl BuildRecall for ApiClient {
             .bearer_auth(tok)
             .send()
             .await
-            .map_err(|e| ApiError::FailedToConnect)?;
+            .map_err(|_e| ApiError::FailedToConnect)?;
 
         if resp.status() == 401 {
             return Err(ApiError::Unauthorized.into());

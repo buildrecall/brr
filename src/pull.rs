@@ -73,8 +73,10 @@ pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
             slug
         ))?;
 
-    let config = read_global_config(global_config_dir.clone())?;
-    let g = git::RecallGit::new(global_config_dir.clone())?;
+    let config = read_global_config(global_config_dir.clone())
+        .context("Failed to parse the global config ~/.builrecall/config.toml")?;
+    let g = git::RecallGit::new(global_config_dir.clone())
+        .context("Failed to create a shadow git instance")?;
 
     let oid = g
         .hash_folder(project_id)
@@ -83,7 +85,10 @@ pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
 
     let client = ApiClient::new(config);
 
-    // TODO pull
+    client
+        .pull_project(oid.to_string())
+        .await
+        .context("Failed to pull project")?;
 
     Ok(())
 }

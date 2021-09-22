@@ -74,18 +74,26 @@ impl RecallGit {
     }
 
     fn get_repo_by_project(&self, project_id: uuid::Uuid) -> Result<Repository> {
-        let config = read_global_config(self.global_config_dir.clone())?;
         let dot_git_path = repo_path(self.global_config_dir.clone(), project_id.clone())
             .context("Failed to create path")?;
 
         let repo_exists = Path::new(&dot_git_path).is_dir();
-        match repo_exists {
+        let repo = match repo_exists {
             true => git2::Repository::open_bare(&dot_git_path)
                 .context(format!("Failed to open repo {:?}", dot_git_path)),
             false => {
                 git2::Repository::init_bare(dot_git_path.as_path()).context("Failed to init repo")
             }
         }
+        .context("Failed to init or open the shadow git repo")?;
+
+        repo.set_workdir(
+            &worktree_path(self.global_config_dir.clone(), project_id)?,
+            false,
+        )
+        .context("Failed to create a workdir for the shadow git repo")?;
+
+        Ok(repo)
     }
 
     pub async fn hash_folder(&self, project_id: uuid::Uuid) -> Result<Oid> {
@@ -113,11 +121,6 @@ impl RecallGit {
         let repo = self
             .get_repo_by_project(project_id)
             .context("Failed to get git repository")?;
-
-        repo.set_workdir(
-            &worktree_path(self.global_config_dir.clone(), project_id)?,
-            false,
-        )?;
 
         Ok(tokio::runtime::Handle::current()
             .spawn_blocking(move || -> Result<_> {
