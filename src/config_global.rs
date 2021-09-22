@@ -20,10 +20,10 @@ pub struct ConnectionConfig {
     pub access_token: Option<String>,
 
     // The app to connect to (for dev / staging / production testing)
-    pub control_host: Option<String>,
+    pub control_domain: Option<String>,
 
     // The build farm scheduler to connect to
-    pub scheduler_host: Option<String>,
+    pub scheduler_domain: Option<String>,
 }
 
 // What's stored in their home directory
@@ -36,30 +36,63 @@ pub struct GlobalConfig {
     pub repos: Option<Vec<RepoConfig>>,
 }
 
-const BUILDRECALL_HOST: &str = "https://buildrecall.com";
-const SCHEDULER_HOST: &str = "recalls+git://worker.buildrecall.com";
+const HTTP: &str = "http://";
+const HTTPS: &str = "https://";
+const RECALL_GIT: &str = "recall+git://"; // local git
+const RECALLS_GIT: &str = "recalls+git://"; // SSL git
+const BUILDRECALL_DOMAIN: &str = "buildrecall.com";
+const SCHEDULER_DOMAIN: &str = "worker.buildrecall.com";
 
 impl GlobalConfig {
-    pub fn control_host(&self) -> String {
-        let host = self
-            .connection
+    pub fn control_domain(&self) -> String {
+        self.connection
             .clone()
-            .map(|c| c.control_host)
+            .map(|c| c.control_domain)
             .flatten()
-            .unwrap_or(BUILDRECALL_HOST.into());
+            .unwrap_or(BUILDRECALL_DOMAIN.into())
+    }
 
-        host
+    pub fn scheduler_domain(&self) -> String {
+        self.connection
+            .clone()
+            .map(|c| c.scheduler_domain)
+            .flatten()
+            .unwrap_or(SCHEDULER_DOMAIN.into())
+    }
+
+    pub fn control_host(&self) -> String {
+        let domain = self.control_domain();
+
+        if domain == "localhost:8080" {
+            format!("{}{}", HTTP, domain).to_string()
+        } else {
+            format!("{}{}", HTTPS, domain).to_string()
+        }
     }
 
     pub fn scheduler_host(&self) -> String {
-        let host = self
+        let domain = self.scheduler_domain();
+
+        if domain == "localhost:7980" {
+            format!("{}{}", HTTP, domain).to_string()
+        } else {
+            format!("{}{}", HTTPS, domain).to_string()
+        }
+    }
+
+    pub fn git_host(&self) -> String {
+        let domain = self
             .connection
             .clone()
-            .map(|c| c.scheduler_host)
+            .map(|c| c.scheduler_domain)
             .flatten()
-            .unwrap_or(SCHEDULER_HOST.to_string());
+            .unwrap_or(SCHEDULER_DOMAIN.to_string());
 
-        host
+        if domain == "localhost:7980" {
+            format!("{}{}", RECALL_GIT, domain).to_string()
+        } else {
+            format!("{}{}", RECALLS_GIT, domain).to_string()
+        }
     }
 
     pub fn access_token(&self) -> Option<String> {
@@ -207,8 +240,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                control_host: Some(c.control_host()),
-                scheduler_host: Some(c.scheduler_host()),
+                control_domain: Some(c.control_domain()),
+                scheduler_domain: Some(c.scheduler_domain()),
             }),
             repos: c.repos,
         });
@@ -230,8 +263,8 @@ mod tests {
         let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
             connection: Some(ConnectionConfig {
                 access_token: Some("i-am-test".to_string()),
-                control_host: Some(c.control_host()),
-                scheduler_host: Some(c.scheduler_host()),
+                control_domain: Some(c.control_domain()),
+                scheduler_domain: Some(c.scheduler_domain()),
             }),
             repos: None,
         });

@@ -41,8 +41,8 @@ pub async fn run_login(global_config_dir: PathBuf, login: Login) -> Result<()> {
             overwrite_global_config(dir, |c| GlobalConfig {
                 connection: Some(ConnectionConfig {
                     access_token: Some(tok.clone()),
-                    control_host: Some(c.control_host()),
-                    scheduler_host: Some(c.scheduler_host()),
+                    control_domain: Some(c.control_domain()),
+                    scheduler_domain: Some(c.scheduler_domain()),
                 }),
                 repos: c.repos,
             })?;

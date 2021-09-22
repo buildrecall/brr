@@ -1,6 +1,6 @@
 use std::{fs, io::Read};
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
