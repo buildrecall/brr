@@ -207,6 +207,10 @@ impl BuildRecall for ApiClient {
                         .context("Failed to parse path of archived file")?
                         .clone();
 
+                    if let Some(parent) = path.parent() {
+                        fs::create_dir_all(parent)
+                            .context(format!("Failed to create directory {:?}", parent))?;
+                    }
                     fs::write(path.clone(), buf)
                         .context(format!("Failed to write to file at {:?}", path))?;
                 }

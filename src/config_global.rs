@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -108,8 +109,14 @@ impl GlobalConfig {
         // check if global config already has this path.
         // In which case do nothing
         let empty = vec![];
-        let configs = self.clone().repos.unwrap_or(empty);
-        let existing = configs.iter().find(|r| r.path == buf);
+        let mut configs = self.clone().repos.unwrap_or(empty);
+
+        //  try most-specific paths first
+        configs.sort_by_key(|c| -(c.path.as_os_str().len() as i64));
+        let existing = configs
+            .iter()
+            .filter(|c| buf.ancestors().any(|p| &c.path == &p))
+            .next();
 
         Ok(existing.cloned())
     }
