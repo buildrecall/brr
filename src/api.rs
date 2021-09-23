@@ -56,6 +56,12 @@ pub struct OrgInvite {
     pub token: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PullResponse {
+    // A pre-signed S3 URL
+    pub artifact_url: String,
+}
+
 #[async_trait]
 pub trait BuildRecall {
     async fn login(&self, body: LoginRequestBody) -> Result<LoginRequestResponseBody>;
@@ -86,6 +92,48 @@ impl ApiClient {
     fn token(&self) -> Result<String> {
         self.global_config.clone().access_token().ok_or(
             anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config)."))
+    }
+
+    async fn pull_artifact_url(
+        &self,
+        project_id: uuid::Uuid,
+        hash: String,
+    ) -> Result<PullResponse> {
+        let client = reqwest::Client::new();
+
+        let tok = self.token()?.clone();
+        let scheduler_host = self.get_scheduler_host().clone();
+
+        let pullresp = client
+            .get(format!(
+                "{}/p/{}/pull/{}",
+                scheduler_host.clone(),
+                project_id,
+                &hash
+            ))
+            .bearer_auth(tok)
+            .send()
+            .await
+            .map_err(|e| ApiError::FailedToConnect {
+                host: scheduler_host.clone(),
+                err: e,
+            })?;
+
+        if pullresp.status() == 401 {
+            return Err(ApiError::Unauthorized.into());
+        }
+
+        if !pullresp.status().is_success() {
+            return Err(ApiError::BadResponse {
+                request: format!("GET {}/p/{}/pull/{}", scheduler_host, project_id, &hash),
+                status: pullresp.status(),
+            }
+            .into());
+        }
+
+        let r = pullresp.json::<PullResponse>().await?;
+
+        Ok(r)
     }
 }
 
@@ -127,37 +175,19 @@ impl BuildRecall for ApiClient {
     async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<()> {
         let handle = tokio::runtime::Handle::current();
 
-        let tok = self.token()?.clone();
-        let scheduler_host = self.get_scheduler_host().clone();
+        let pull = self
+            .pull_artifact_url(project_id, hash)
+            .await
+            .context("Failed to pull s3 signed url for this artifact")?;
+
         handle
             .spawn_blocking(move || -> Result<()> {
                 let client = reqwest::blocking::Client::new();
 
                 let mut resp = client
-                    .get(format!(
-                        "{}/p/{}/pull/{}",
-                        scheduler_host.clone(),
-                        project_id,
-                        &hash
-                    ))
-                    .bearer_auth(tok)
+                    .get(pull.artifact_url)
                     .send()
-                    .map_err(|e| ApiError::FailedToConnect {
-                        host: scheduler_host.clone(),
-                        err: e,
-                    })?;
-
-                if resp.status() == 401 {
-                    return Err(ApiError::Unauthorized.into());
-                }
-
-                if !resp.status().is_success() {
-                    return Err(ApiError::BadResponse {
-                        request: format!("GET {}/pull/{}", scheduler_host, &hash),
-                        status: resp.status(),
-                    }
-                    .into());
-                }
+                    .context("Failed to pull the artifact from S3")?;
 
                 let input = brotli::Decompressor::new(&mut resp, 4096);
                 let mut a = tar::Archive::new(input);
