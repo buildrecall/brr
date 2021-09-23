@@ -162,7 +162,7 @@ impl RecallGit {
                     Ok(())
                 });
 
-                let remote_url = format!("{}/push", config.git_host());
+                let remote_url = format!("{}/p/{}/push", config.git_host(), project_id);
                 let mut push_opts = PushOptions::new();
                 push_opts.remote_callbacks(push_cbs);
                 let mut remote = repo

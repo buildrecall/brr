@@ -62,7 +62,7 @@ pub trait BuildRecall {
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
-    async fn pull_project(&self, hash: String) -> Result<()>;
+    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<()>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -124,7 +124,7 @@ impl BuildRecall for ApiClient {
         Ok(result)
     }
 
-    async fn pull_project(&self, hash: String) -> Result<()> {
+    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<()> {
         let handle = tokio::runtime::Handle::current();
 
         let tok = self.token()?.clone();
@@ -134,7 +134,12 @@ impl BuildRecall for ApiClient {
                 let client = reqwest::blocking::Client::new();
 
                 let mut resp = client
-                    .get(format!("{}/pull/{}", scheduler_host.clone(), &hash))
+                    .get(format!(
+                        "{}/p/{}/pull/{}",
+                        scheduler_host.clone(),
+                        project_id,
+                        &hash
+                    ))
                     .bearer_auth(tok)
                     .send()
                     .map_err(|e| ApiError::FailedToConnect {

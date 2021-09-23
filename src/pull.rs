@@ -86,7 +86,7 @@ pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
     let client = ApiClient::new(config);
 
     client
-        .pull_project(oid.to_string())
+        .pull_project(project_id, oid.to_string())
         .await
         .context("Failed to pull project")?;
 
