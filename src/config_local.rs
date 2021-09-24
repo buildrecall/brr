@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fmt::Debug,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::Write,
     path::PathBuf,
 };
@@ -14,8 +15,10 @@ pub struct ProjectConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct JobConfig {
+    pub name: Option<String>,
     pub run: Option<String>,
     pub artifacts: Option<Vec<String>>,
+    pub env: Option<HashMap<String, String>>,
 }
 
 // What's stored in their repo directory
@@ -25,15 +28,26 @@ pub struct LocalConfig {
     pub jobs: Option<Vec<JobConfig>>,
 }
 
-impl LocalConfig {}
+impl LocalConfig {
+    pub fn jobs(&self) -> Vec<JobConfig> {
+        self.jobs.clone().unwrap_or(vec![])
+    }
 
-const LOCAL_CONFIG_NAME: &str = "buildrecall.com";
+    pub fn project(&self) -> ProjectConfig {
+        match self.project.clone() {
+            Some(p) => p,
+            None => ProjectConfig { name: None },
+        }
+    }
+}
 
-fn ensure_local_config_file(dir: PathBuf) -> Result<()> {
+const LOCAL_CONFIG_NAME: &str = "buildrecall.toml";
+
+fn ensure_local_config_file(dir: PathBuf) -> Result<File> {
     fs::create_dir_all(dir.clone()).context(format!("Failed to create dir {:?}", dir.clone()))?;
     let filepath = dir.join(LOCAL_CONFIG_NAME);
 
-    let _ = OpenOptions::new()
+    let f = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -43,7 +57,7 @@ fn ensure_local_config_file(dir: PathBuf) -> Result<()> {
             filepath
         ))?;
 
-    Ok(())
+    Ok(f)
 }
 
 pub fn read_local_config(dir: PathBuf) -> Result<LocalConfig> {

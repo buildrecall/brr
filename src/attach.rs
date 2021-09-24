@@ -6,6 +6,7 @@ use dialoguer::Confirm;
 use crate::{
     api::{ApiClient, BuildRecall, Project},
     config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
+    config_local::{overwrite_local_config, LocalConfig, ProjectConfig},
     git,
 };
 
@@ -42,7 +43,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
 
     match existing {
         Some(c) => {
-            if projects.iter().find(|p| p.slug == c.name).is_none() {
+            if projects.iter().find(|p| p.slug.clone() == c.name).is_none() {
                 return Err(anyhow!("This folder is attached to a build farm that no longer exists.\n\nIt might have been deleted by someone else, or it might exist on a different account.\nIf you want to recreate it, detach and then re-attach this folder:\n\n\tbrr detach\n\tbrr attach {}\n", c.name));
             }
 
@@ -81,12 +82,13 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         }
     };
 
-    // create the project in the local config
+    // create the project in the global config
     let project_config_id = project?.clone().id.clone();
+    let global_slug = slug.clone();
     overwrite_global_config(global_config_dir.clone(), move |c| {
         let mut repos: Vec<RepoConfig> = vec![RepoConfig {
             path: path,
-            name: slug.clone(),
+            name: global_slug,
             id: project_config_id,
         }];
         repos.extend(c.repos.unwrap_or(vec![]));
@@ -97,6 +99,19 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         }
     })
     .context("Failed to store this project in the global config file")?;
+
+    // Create a local config file
+    let local_slug = slug.clone();
+    overwrite_local_config(
+        env::current_dir().context("Failed to read current dir")?,
+        move |c| LocalConfig {
+            jobs: c.jobs,
+            project: Some(ProjectConfig {
+                name: Some(local_slug),
+            }),
+        },
+    )
+    .context("Failed to create buildrecall.toml")?;
 
     // create a .git folder for brr to use that doesn't mess with the user's git.
     let g = git::RecallGit::new(global_config_dir.clone())?;
