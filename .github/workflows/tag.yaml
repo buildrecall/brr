@@ -8,13 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      # - uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
       - name: Download brr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: 0.0.1
+          TAG: 0.0.2
         run: |
           CURL="curl -s -H 'Authorization: Bearer ${GITHUB_TOKEN}' \
           https://api.github.com/repos/buildrecall/brr/releases"; \
@@ -24,16 +24,16 @@ jobs:
           sudo chmod +x /usr/bin/brr
           brr
 
-      # - name: brr build
-      #   env:
-      #     BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
-      #   run: |
-      #     brr pull cli
+      - name: brr build
+        env:
+          BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
+        run: |
+          brr pull cli
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
