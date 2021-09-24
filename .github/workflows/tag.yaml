@@ -8,19 +8,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/brr
-          asset_name: brr-$tag-x86_64-unknown-linux-gnu
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: ""
+      # - uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
+      - name: Download brr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" \
+               -H "Accept:application/octet-stream" \
+               -i https://github.com/buildrecall/brr/releases/download/0.0.1/brr-0.0.1-x86_64-unknown-linux-gnu
+          mv brr-0.0.1-x86_64-unknown-linux-gnu brr
+          chmod +x brr
+          ./brr
+
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release
+      # - name: Upload binaries to release
+      #   uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     file: target/release/brr
+      #     asset_name: brr-$tag-x86_64-unknown-linux-gnu
+      #     tag: ${{ github.ref }}
+      #     overwrite: true
+      #     body: ""
