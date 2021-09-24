@@ -6,8 +6,9 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{self, PathBuf};
 use std::sync::mpsc::channel;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::error;
+use uuid::Uuid;
 
 use crate::config_global::read_global_config;
 use crate::git::RecallGit;
@@ -100,26 +101,23 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
 
-    let config = read_global_config(global_config_dir).context("Failed to read global config")?;
+    let config =
+        read_global_config(global_config_dir.clone()).context("Failed to read global config")?;
     if config.repos.is_none() {
         return Err(anyhow!(
             "You need to attach a repo before starting the Build Recall Daemon."
         ));
     }
 
-    let mut ignores: HashMap<PathBuf, Gitignore> = HashMap::new();
+    let rgit = RecallGit::new(global_config_dir)?;
 
     for repo in config.repos.clone().unwrap_or(vec![]) {
-        let (gi, err) = Gitignore::new(repo.path.clone().join(".gitignore"));
-        if err.is_some() {
-            return Err(err.unwrap().into()); // fails if there's no git ignore
-        }
-
-        ignores.insert(repo.path.clone(), gi);
         watcher
             .watch(repo.path.clone(), RecursiveMode::Recursive)
             .unwrap();
     }
+
+    let mut last_push_by_repo = std::collections::HashMap::<Uuid, Instant>::new();
 
     loop {
         match rx.recv() {
@@ -139,11 +137,32 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
                     }
                 };
 
+                if path.ends_with(".git") {
+                    continue;
+                }
+
                 let maybe_repo = config.repo_config_of_pathbuf(path.clone())?;
                 let repo = match maybe_repo {
                     Some(r) => r,
+                    //TODO: potentially reload config in this case
                     None => return Err(anyhow!("expected to find a repo {:?}", path)),
                 };
+
+                let git_repo = rgit.get_repo_by_project(repo.id)?;
+                if git_repo.is_path_ignored(path.strip_prefix(repo.path)?)? {
+                    continue;
+                }
+
+                if let Some(last_push) = last_push_by_repo.get(&repo.id) {
+                    if last_push.elapsed() < std::time::Duration::from_secs(10) {
+                        //  throttle
+                        continue;
+                    }
+                }
+
+                tracing::debug!("triggering push because of file: {:?}", path);
+
+                last_push_by_repo.insert(repo.id, std::time::Instant::now());
 
                 match g.push_project(repo.id).await {
                     Ok(_) => continue,

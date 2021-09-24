@@ -56,7 +56,7 @@ pub struct RecallGit {
 
 impl RecallGit {
     pub fn new(global_config_dir: PathBuf) -> Result<RecallGit> {
-        tracing_subscriber::fmt::init();
+        let _ = tracing_subscriber::fmt::try_init();
         init_git_transport();
 
         Ok(RecallGit {
@@ -73,7 +73,7 @@ impl RecallGit {
         Ok(())
     }
 
-    fn get_repo_by_project(&self, project_id: uuid::Uuid) -> Result<Repository> {
+    pub fn get_repo_by_project(&self, project_id: uuid::Uuid) -> Result<Repository> {
         let dot_git_path = repo_path(self.global_config_dir.clone(), project_id.clone())
             .context("Failed to create path")?;
 
