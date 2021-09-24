@@ -98,8 +98,9 @@ impl GlobalConfig {
 
     pub fn access_token(&self) -> Option<String> {
         self.connection
-            .clone()?
-            .access_token
+            .clone()
+            .map(|c| c.access_token)
+            .flatten()
             .or(std::env::var("BUILDRECALL_API_KEY").ok())
     }
 
