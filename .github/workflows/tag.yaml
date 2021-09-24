@@ -14,13 +14,13 @@ jobs:
       - name: Download brr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: 0.0.3
+          TAG: 0.0.4
         run: |
           CURL="curl -s -H 'Authorization: Bearer ${GITHUB_TOKEN}' \
           https://api.github.com/repos/buildrecall/brr/releases"; \
           ASSET_ID=$(eval "$CURL/tags/$TAG" | jq .assets[0].id); \
           eval "$CURL/assets/$ASSET_ID -LJOH 'Accept: application/octet-stream'"
-          sudo mv brr-$TAG-x86_64-unknown-linux-gnu /usr/bin/brr
+          sudo mv brr-$TAG-x86_64-unknown-linux-musl /usr/bin/brr
           sudo chmod +x /usr/bin/brr
           brr
 
