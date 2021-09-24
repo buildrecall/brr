@@ -8,31 +8,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      # - uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
       - name: Download brr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: 0.0.1
         run: |
-          CURL="curl -H 'Authorization: Bearer ${GITHUB_TOKEN}' \
+          CURL="curl -s -H 'Authorization: Bearer ${GITHUB_TOKEN}' \
           https://api.github.com/repos/buildrecall/brr/releases"; \
-          ASSET_ID=$(eval "$CURL/tags/0.0.1" | jq .assets[0].id); \
-          eval "$CURL/assets/$ASSET_ID -sLJOH 'Accept: application/octet-stream'"
-          sudo mv brr-0.0.1-x86_64-unknown-linux-gnu /usr/bin/brr
+          ASSET_ID=$(eval "$CURL/tags/$TAG" | jq .assets[0].id); \
+          eval "$CURL/assets/$ASSET_ID -LJOH 'Accept: application/octet-stream'"
+          sudo mv brr-$TAG-x86_64-unknown-linux-gnu /usr/bin/brr
           sudo chmod +x /usr/bin/brr
           brr
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+      - name: brr build
+        env:
+          BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
+        run: |
+          brr pull cli
+
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/brr
-          asset_name: brr-$tag-x86_64-unknown-linux-gnu
+          file: target/x86_64-unknown-linux-musl/release/brr
+          asset_name: brr-$tag-x86_64-unknown-linux-musl
           tag: ${{ github.ref }}
           overwrite: true
           body: ""
