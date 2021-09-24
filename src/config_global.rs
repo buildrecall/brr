@@ -97,7 +97,10 @@ impl GlobalConfig {
     }
 
     pub fn access_token(&self) -> Option<String> {
-        self.connection.clone()?.access_token
+        self.connection
+            .clone()?
+            .access_token
+            .or(std::env::var("BUILDRECALL_API_KEY").ok())
     }
 
     pub fn repo_config_by_id(&self, id: uuid::Uuid) -> Option<RepoConfig> {
