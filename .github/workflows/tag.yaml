@@ -24,11 +24,11 @@ jobs:
           sudo chmod +x /usr/bin/brr
           brr
 
-      - name: brr build
-        env:
-          BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
-        run: |
-          brr pull cli
+      # - name: brr build
+      #   env:
+      #     BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
+      #   run: |
+      #     brr pull cli
 
       - uses: actions-rs/cargo@v1
         with:
