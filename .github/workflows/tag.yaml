@@ -15,9 +15,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -H "Authorization: token ${GITHUB_TOKEN}" \
-               -H "Accept:application/octet-stream" \
-               -i https://github.com/buildrecall/brr/releases/download/0.0.1/brr-0.0.1-x86_64-unknown-linux-gnu
+          CURL="curl -H 'Authorization: token ${GITUB_TOKEN}' \
+          https://api.github.com/repos/buildrecall/brr/releases"; \
+          ASSET_ID=$(eval "$CURL/tags/0.0.1" | jq .assets[0].id); \
+          eval "$CURL/assets/$ASSET_ID -LJOH 'Accept: application/octet-stream'"
+          ls -R
           mv brr-0.0.1-x86_64-unknown-linux-gnu brr
           chmod +x brr
           ./brr
