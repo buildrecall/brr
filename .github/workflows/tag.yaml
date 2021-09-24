@@ -39,7 +39,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/x86_64-unknown-linux-gnu/release/brr
+          file: target/release/brr
           asset_name: brr-$tag-x86_64-unknown-linux-gnu
           tag: ${{ github.ref }}
           overwrite: true
