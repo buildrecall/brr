@@ -18,7 +18,7 @@ jobs:
           CURL="curl -H 'Authorization: Bearer ${GITHUB_TOKEN}' \
           https://api.github.com/repos/buildrecall/brr/releases"; \
           ASSET_ID=$(eval "$CURL/tags/0.0.1" | jq .assets[0].id); \
-          eval "$CURL/assets/$ASSET_ID -LJOH 'Accept: application/octet-stream'"
+          eval "$CURL/assets/$ASSET_ID -sLJOH 'Accept: application/octet-stream'"
           sudo mv brr-0.0.1-x86_64-unknown-linux-gnu /usr/bin/brr
           sudo chmod +x /usr/bin/brr
           brr
