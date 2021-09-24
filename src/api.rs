@@ -90,8 +90,10 @@ impl ApiClient {
     }
 
     fn token(&self) -> Result<String> {
-        self.global_config.clone().access_token().ok_or(
-            anyhow!("Can't find an 'access_token' in your global config file (which typically lives at ~/.buildrecall/config)."))
+        self.global_config.clone().access_token()
+        .or(std::env::var("BUILDRECALL_API_KEY").ok())
+        .ok_or(
+            anyhow!("Can't find an 'access_token'. Specify one in your global config file (which typically lives at ~/.buildrecall/config) or if in CI, in the BUILDRECALL_API_KEY env var."))
     }
 
     async fn pull_artifact_url(

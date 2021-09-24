@@ -28,7 +28,7 @@ pub struct ConnectionConfig {
 }
 
 // What's stored in their home directory
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct GlobalConfig {
     pub connection: Option<ConnectionConfig>,
 
