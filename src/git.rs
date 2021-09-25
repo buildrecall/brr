@@ -138,7 +138,8 @@ impl RecallGit {
                 let tree = repo
                     .find_tree(tree)
                     .context("Failed to find a git tree in this repository")?;
-                let sig = repo.signature().context(
+                let sig = git2::Signature::now("buildrecall", "bot@buildrecall.com")
+                .context(
                     "failed to create a git signature (needed to make a commit in the shadow git repo)",
                 )?;
 
