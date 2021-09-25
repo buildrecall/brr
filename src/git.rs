@@ -179,6 +179,7 @@ impl RecallGit {
 
                 //  push to non-main branch so that we dont get "branch is currently checked out" error
                 //  https://stackoverflow.com/questions/2816369/git-push-error-remote-rejected-master-master-branch-is-currently-checked
+                //  TODO: potential race condition as another process could update HEAD before this push
                 let refspecs: &[&str] = &["+HEAD:refs/heads/incoming"];
                 remote
                     .push(refspecs, Some(&mut push_opts))

@@ -28,11 +28,6 @@ pub async fn run_push_in_current_dir_retry(
     project_id: Uuid,
 ) -> Result<()> {
     let g = RecallGit::new(global_config_dir).context("Failed to create shadow git")?;
-    let tree = g
-        .get_repo_by_project(project_id)?
-        .index()?
-        .write_tree()?
-        .to_string();
 
     g.push_project(project_id, true)
         .await

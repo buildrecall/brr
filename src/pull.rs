@@ -87,6 +87,7 @@ pub async fn run_pull(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Res
     Ok(pulled)
 }
 
+//
 pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) -> Result<()> {
     let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
         .await
@@ -95,13 +96,12 @@ pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) 
             slug
         ))?;
 
-    let pulled = run_pull(global_config_dir.clone(), project_id).await?;
+    let mut pulled = run_pull(global_config_dir.clone(), project_id).await?;
 
     if !pulled {
         run_push_in_current_dir_retry(global_config_dir.clone(), project_id).await?;
+        pulled = run_pull(global_config_dir.clone(), project_id).await?;
     }
-
-    let pulled = run_pull(global_config_dir.clone(), project_id).await?;
 
     if !pulled {
         return Err(anyhow!("buildrecall artifacts unavailable for this build"));
