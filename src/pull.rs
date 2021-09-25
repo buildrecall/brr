@@ -87,7 +87,6 @@ pub async fn run_pull(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Res
     Ok(pulled)
 }
 
-//
 pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) -> Result<()> {
     let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
         .await
