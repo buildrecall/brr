@@ -5,6 +5,7 @@ use crate::{
     api::{self, ApiClient, BuildRecall, Project},
     config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
     git,
+    push::run_push_in_current_dir_retry,
 };
 
 pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Result<uuid::Uuid> {
@@ -65,14 +66,7 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
     Ok(project.id)
 }
 
-pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
-    let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
-        .await
-        .context(format!(
-            "Failed to attach the project '{}' to this folder",
-            slug
-        ))?;
-
+pub async fn run_pull(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<bool> {
     let config = read_global_config(global_config_dir.clone())
         .context("Failed to parse the global config ~/.builrecall/config.toml")?;
     let g = git::RecallGit::new(global_config_dir.clone())
@@ -85,10 +79,33 @@ pub async fn run_pull(global_config_dir: PathBuf, slug: String) -> Result<()> {
 
     let client = ApiClient::new(config);
 
-    client
+    let pulled = client
         .pull_project(project_id, oid.to_string())
         .await
         .context("Failed to pull project")?;
+
+    Ok(pulled)
+}
+
+pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) -> Result<()> {
+    let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
+        .await
+        .context(format!(
+            "Failed to attach the project '{}' to this folder",
+            slug
+        ))?;
+
+    let pulled = run_pull(global_config_dir.clone(), project_id).await?;
+
+    if !pulled {
+        run_push_in_current_dir_retry(global_config_dir.clone(), project_id).await?;
+    }
+
+    let pulled = run_pull(global_config_dir.clone(), project_id).await?;
+
+    if !pulled {
+        return Err(anyhow!("buildrecall artifacts unavailable for this build"));
+    }
 
     Ok(())
 }

@@ -115,7 +115,7 @@ impl RecallGit {
         Ok(hash)
     }
 
-    pub async fn push_project(&self, project_id: Uuid) -> Result<()> {
+    pub async fn push_project(&self, project_id: Uuid, retry: bool) -> Result<()> {
         let config = read_global_config(self.global_config_dir.clone())?;
 
         let repo = self
@@ -139,8 +139,8 @@ impl RecallGit {
                     .find_tree(tree)
                     .context("Failed to find a git tree in this repository")?;
                 let sig = repo.signature().context(
-                "failed to create a git signature (needed to make a commit in the shadow git repo)",
-            )?;
+                    "failed to create a git signature (needed to make a commit in the shadow git repo)",
+                )?;
 
                 //  update HEAD so that push works correctly
                 let head = repo.head().ok().map(|h| h.peel_to_commit().ok()).flatten();
@@ -162,7 +162,15 @@ impl RecallGit {
                     Ok(())
                 });
 
-                let remote_url = format!("{}/p/{}/push", config.git_host(), project_id);
+                #[derive(serde::Serialize)]
+                struct PushParams {
+                    wait: Option<bool>,
+                    tree_hash_hex: Option<String>,
+                }
+
+                let query = serde_qs::to_string(&PushParams{wait: Some(retry), tree_hash_hex: Some(tree.id().to_string())})?;
+
+                let remote_url = format!("{}/p/{}/push?{}", config.git_host(), project_id, query);
                 let mut push_opts = PushOptions::new();
                 push_opts.remote_callbacks(push_cbs);
                 let mut remote = repo

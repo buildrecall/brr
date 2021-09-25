@@ -68,7 +68,8 @@ pub trait BuildRecall {
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
-    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<()>;
+    //  returns whether artifact were ready
+    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -99,7 +100,7 @@ impl ApiClient {
         &self,
         project_id: uuid::Uuid,
         hash: String,
-    ) -> Result<PullResponse> {
+    ) -> Result<Option<PullResponse>> {
         let client = reqwest::Client::new();
 
         let tok = self.token()?.clone();
@@ -132,7 +133,7 @@ impl ApiClient {
             .into());
         }
 
-        let r = pullresp.json::<PullResponse>().await?;
+        let r = pullresp.json::<Option<PullResponse>>().await?;
 
         Ok(r)
     }
@@ -173,7 +174,7 @@ impl BuildRecall for ApiClient {
         Ok(result)
     }
 
-    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<()> {
+    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();
 
         let pull = self
@@ -181,8 +182,13 @@ impl BuildRecall for ApiClient {
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 
+        let pull = match pull {
+            Some(pull) => pull,
+            None => return Ok(false),
+        };
+
         handle
-            .spawn_blocking(move || -> Result<()> {
+            .spawn_blocking(move || -> Result<bool> {
                 let client = reqwest::blocking::Client::new();
 
                 let mut resp = client
@@ -216,7 +222,7 @@ impl BuildRecall for ApiClient {
                         .context(format!("Failed to write to file at {:?}", path))?;
                 }
 
-                Ok(())
+                Ok(true)
             })
             .await?
     }

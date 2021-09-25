@@ -119,7 +119,9 @@ async fn main() -> Result<()> {
         }
         SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
         SubCommand::Logs(_) => todo!(),
-        SubCommand::Pull(a) => pull::run_pull(get_global_config_dir()?, a.name).await,
+        SubCommand::Pull(a) => {
+            pull::pull_with_push_if_needed(get_global_config_dir()?, a.name).await
+        }
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
         SubCommand::Hash(_) => {
             let curr = env::current_dir()?.as_path().to_path_buf();

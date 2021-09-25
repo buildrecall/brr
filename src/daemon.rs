@@ -96,6 +96,7 @@ pub fn create_macos_launch_agent() -> Result<()> {
 
 pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
     println!("Starting daemon");
+    //  TODO: auto-reload daemon config
 
     let g = RecallGit::new(global_config_dir.clone())?;
     let (tx, rx) = channel();
@@ -164,7 +165,7 @@ pub async fn summon_daemon(global_config_dir: PathBuf) -> Result<()> {
 
                 last_push_by_repo.insert(repo.id, std::time::Instant::now());
 
-                match g.push_project(repo.id).await {
+                match g.push_project(repo.id, false).await {
                     Ok(_) => continue,
                     Err(e) => error!("Push failed: {}", e.to_string()),
                 };

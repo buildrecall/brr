@@ -154,6 +154,7 @@ dependencies = [
  "rust-crypto",
  "serde",
  "serde_json",
+ "serde_qs",
  "tar",
  "tempdir",
  "thiserror",
@@ -1519,6 +1520,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_qs"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8a72808528a89fa9eca23bbb6a1eb92cb639b881357269b6510f11e50c0f8a9"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
