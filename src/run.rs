@@ -2,8 +2,9 @@ use anyhow::{anyhow, Context, Result};
 use std::{env, path::PathBuf};
 
 use crate::{
-    api::{self, ApiClient, BuildRecall, Project},
+    api::{ApiClient, BuildRecall, Project},
     config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
+    config_local::read_local_config,
     git,
     push::run_push_in_current_dir_retry,
 };
@@ -66,7 +67,11 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
     Ok(project.id)
 }
 
-pub async fn run_pull(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<bool> {
+pub async fn run_pull(
+    global_config_dir: PathBuf,
+    current_dir: PathBuf,
+    project_id: uuid::Uuid,
+) -> Result<bool> {
     let config = read_global_config(global_config_dir.clone())
         .context("Failed to parse the global config ~/.builrecall/config.toml")?;
     let g = git::RecallGit::new(global_config_dir.clone())
@@ -87,7 +92,17 @@ pub async fn run_pull(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Res
     Ok(pulled)
 }
 
-pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) -> Result<()> {
+pub async fn pull_with_push_if_needed(
+    global_config_dir: PathBuf,
+    current_dir: PathBuf,
+    job: String,
+) -> Result<()> {
+    let local =
+        read_local_config(current_dir.clone()).context("Failed to read buildrecall.toml")?;
+    let slug = local.project().name.ok_or(anyhow!(
+        "buildrecall.toml is missing a 'project.name' field"
+    ))?;
+
     let project_id = preattach_to_repo(global_config_dir.clone(), slug.clone())
         .await
         .context(format!(
@@ -95,11 +110,11 @@ pub async fn pull_with_push_if_needed(global_config_dir: PathBuf, slug: String) 
             slug
         ))?;
 
-    let mut pulled = run_pull(global_config_dir.clone(), project_id).await?;
+    let mut pulled = run_pull(global_config_dir.clone(), current_dir.clone(), project_id).await?;
 
     if !pulled {
         run_push_in_current_dir_retry(global_config_dir.clone(), project_id).await?;
-        pulled = run_pull(global_config_dir.clone(), project_id).await?;
+        pulled = run_pull(global_config_dir.clone(), current_dir, project_id).await?;
     }
 
     if !pulled {

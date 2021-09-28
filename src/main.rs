@@ -18,8 +18,8 @@ mod git;
 mod hash;
 mod invite;
 mod login;
-mod pull;
 mod push;
+mod run;
 
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
@@ -51,7 +51,7 @@ enum SubCommand {
     Logs(Logs),
 
     #[clap()]
-    Pull(Pull),
+    Run(Run),
 
     #[clap()]
     #[doc(hidden)]
@@ -85,14 +85,14 @@ struct Attach {
 #[derive(Clap, Debug)]
 struct Detach {}
 
-/// Downloads the build farm's version of this folder
-/// when it is finished building.
+/// Starts a job, or waits for an existing one with the
+/// same file hash and and then downloads any artifacts.
 ///
 /// Use this in CI to deploy your build.
 #[derive(Clap, Debug)]
-struct Pull {
-    /// The name of the project, the same one you "attached".
-    name: String,
+struct Run {
+    /// The name of the job
+    job: String,
 }
 
 #[derive(Clap, Debug)]
@@ -119,8 +119,9 @@ async fn main() -> Result<()> {
         }
         SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
         SubCommand::Logs(_) => todo!(),
-        SubCommand::Pull(a) => {
-            pull::pull_with_push_if_needed(get_global_config_dir()?, a.name).await
+        SubCommand::Run(a) => {
+            run::pull_with_push_if_needed(get_global_config_dir()?, env::current_dir()?, a.job)
+                .await
         }
         SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
         SubCommand::Hash(_) => {
