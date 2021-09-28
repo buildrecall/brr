@@ -86,7 +86,7 @@ struct Attach {
 struct Detach {}
 
 /// Starts a job, or waits for an existing one with the
-/// same file hash and and then downloads any artifacts.
+/// same file hash and then downloads any artifacts.
 ///
 /// Use this in CI to deploy your build.
 #[derive(Clap, Debug)]
