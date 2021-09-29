@@ -41,7 +41,7 @@ impl LocalConfig {
     }
 }
 
-const LOCAL_CONFIG_NAME: &str = "buildrecall.toml";
+pub const LOCAL_CONFIG_NAME: &str = "buildrecall.toml";
 
 fn ensure_local_config_file(dir: PathBuf) -> Result<File> {
     fs::create_dir_all(dir.clone()).context(format!("Failed to create dir {:?}", dir.clone()))?;
