@@ -22,7 +22,7 @@ pub struct JobConfig {
 }
 
 // What's stored in their repo directory
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct LocalConfig {
     pub project: Option<ProjectConfig>,
     pub jobs: Option<Vec<JobConfig>>,
