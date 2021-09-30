@@ -1,2 +1,6 @@
 [project]
 name = 'cli'
+
+[env.name]
+secret = 'name'
+version = 6

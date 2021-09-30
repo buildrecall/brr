@@ -20,6 +20,7 @@ mod invite;
 mod login;
 mod push;
 mod run;
+mod secrets;
 
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
@@ -64,6 +65,16 @@ enum SubCommand {
     #[clap()]
     #[doc(hidden)]
     Push(Empty),
+
+    #[clap()]
+    Secrets(Secrets),
+}
+
+/// Creates a secret
+#[derive(Clap, Debug)]
+struct Secrets {
+    #[clap(subcommand)]
+    subcmd: secrets::SecretsSubCommand,
 }
 
 /// Creates an invite link you can give to your team
@@ -118,6 +129,9 @@ async fn main() -> Result<()> {
             .await
         }
         SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
+        SubCommand::Secrets(s) => {
+            secrets::run_secrets(s.subcmd, get_global_config_dir()?, env::current_dir()?).await
+        }
         SubCommand::Logs(_) => todo!(),
         SubCommand::Run(a) => {
             run::pull_with_push_if_needed(get_global_config_dir()?, env::current_dir()?, a.job)

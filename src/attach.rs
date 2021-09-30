@@ -109,6 +109,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
             project: Some(ProjectConfig {
                 name: Some(local_slug),
             }),
+            env: c.env,
         },
     )
     .context("Failed to create buildrecall.toml")?;

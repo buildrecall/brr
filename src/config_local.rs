@@ -18,7 +18,19 @@ pub struct JobConfig {
     pub name: Option<String>,
     pub run: Option<String>,
     pub artifacts: Option<Vec<String>>,
-    pub env: Option<HashMap<String, String>>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct SecretEnv {
+    pub secret: String,
+    pub version: i32,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum EnvValue {
+    AsSecret(SecretEnv),
+    AsString(String),
 }
 
 // What's stored in their repo directory
@@ -26,6 +38,7 @@ pub struct JobConfig {
 pub struct LocalConfig {
     pub project: Option<ProjectConfig>,
     pub jobs: Option<Vec<JobConfig>>,
+    pub env: Option<HashMap<String, EnvValue>>,
 }
 
 impl LocalConfig {
@@ -37,6 +50,13 @@ impl LocalConfig {
         match self.project.clone() {
             Some(p) => p,
             None => ProjectConfig { name: None },
+        }
+    }
+
+    pub fn env(&self) -> HashMap<String, EnvValue> {
+        match self.env.clone() {
+            Some(e) => e,
+            None => HashMap::new(),
         }
     }
 }
@@ -68,7 +88,7 @@ pub fn read_local_config(dir: PathBuf) -> Result<LocalConfig> {
     let f = fs::read_to_string(filepath.clone())
         .context(format!("Can't read path {:?}", filepath))
         .unwrap();
-    let config: LocalConfig = toml::from_str(f.as_str()).unwrap();
+    let config: LocalConfig = toml::from_str(f.as_str()).context("Failed to parse toml")?;
 
     Ok(config)
 }

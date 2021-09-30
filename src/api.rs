@@ -2,6 +2,7 @@ use std::{fs, io::Read};
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use chrono::Utc;
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -57,6 +58,16 @@ pub struct OrgInvite {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProjectSecret {
+    pub id: uuid::Uuid,
+    pub created_at: chrono::DateTime<Utc>,
+    pub project_id: uuid::Uuid,
+    pub created_by: uuid::Uuid,
+    pub slug: String,
+    pub version: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PullResponse {
     // A pre-signed S3 URL
     pub artifact_url: String,
@@ -70,6 +81,12 @@ pub trait BuildRecall {
     async fn invite(&self) -> Result<OrgInvite>;
     //  returns whether artifact were ready
     async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool>;
+    async fn set_secret(
+        &self,
+        project_slug: String,
+        secret_slug: String,
+        value: String,
+    ) -> Result<ProjectSecret>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -172,6 +189,60 @@ impl BuildRecall for ApiClient {
                 .context("Failed to login to Build Recall. The response unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(")?;
 
         Ok(result)
+    }
+
+    async fn set_secret(
+        &self,
+        project_slug: String,
+        secret_slug: String,
+        value: String,
+    ) -> Result<ProjectSecret> {
+        let client = reqwest::Client::new();
+        #[derive(Deserialize, Serialize, Clone, Debug)]
+        pub struct SetSecret {
+            slug: String,
+            value: String,
+        }
+
+        let tok = self.token()?;
+
+        let resp = client
+            .post(format!(
+                "{}/v1/cli/projects/{}/secrets",
+                self.get_control_host(),
+                project_slug.clone()
+            ))
+            .json(&SetSecret {
+                slug: secret_slug,
+                value,
+            })
+            .bearer_auth(tok)
+            .send()
+            .await
+            .map_err(|e| ApiError::FailedToConnect {
+                host: self.get_control_host(),
+                err: e,
+            })?;
+
+        if resp.status() == 401 {
+            return Err(ApiError::Unauthorized.into());
+        }
+        if !resp.status().is_success() {
+            return Err(ApiError::BadResponse {
+                request: format!(
+                    "POST {}/v1/cli/projects/{}/secrets",
+                    self.get_control_host(),
+                    project_slug.clone()
+                ),
+                status: resp.status(),
+            }
+            .into());
+        }
+
+        let secret = resp.json::<ProjectSecret>()
+                .await
+                .context("Failed to create this project. The response unexpectedly did not return a JSON body. This is almost certainly a bug in Build Recall. :(")?;
+        Ok(secret)
     }
 
     async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool> {
