@@ -1,5 +1,9 @@
 [project]
 name = 'brr'
 
-# use default rust job
-jobs = []
+[[jobs]]
+name = "build"
+run = """
+cargo build --release --workspace
+"""
+artifacts = ["target/x86_64-unknown-linux-musl/release/brr"]
