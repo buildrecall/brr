@@ -59,7 +59,8 @@ pub struct OrgInvite {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PullResponse {
     // A pre-signed S3 URL
-    pub artifact_url: String,
+    pub artifact_url: Option<String>,
+    pub logs_url: String,
 }
 
 #[async_trait]
@@ -100,7 +101,7 @@ impl ApiClient {
         &self,
         project_id: uuid::Uuid,
         hash: String,
-    ) -> Result<Option<PullResponse>> {
+    ) -> Result<PullResponse> {
         let client = reqwest::Client::new();
 
         let tok = self.token()?.clone();
@@ -133,7 +134,7 @@ impl ApiClient {
             .into());
         }
 
-        let r = pullresp.json::<Option<PullResponse>>().await?;
+        let r = pullresp.json::<PullResponse>().await?;
 
         Ok(r)
     }
@@ -182,8 +183,19 @@ impl BuildRecall for ApiClient {
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 
-        let pull = match pull {
-            Some(pull) => pull,
+        let logs_client = reqwest::ClientBuilder::new().brotli(true).build()?;
+        let _ = logs_client
+            .get(pull.logs_url)
+            .send()
+            .await?
+            .text()
+            .await
+            .map(|logs| {
+                eprintln!("{}", logs);
+            });
+
+        let artifact_url = match pull.artifact_url {
+            Some(u) => u,
             None => return Ok(false),
         };
 
@@ -192,7 +204,7 @@ impl BuildRecall for ApiClient {
                 let client = reqwest::blocking::Client::new();
 
                 let mut resp = client
-                    .get(pull.artifact_url)
+                    .get(artifact_url)
                     .send()
                     .context("Failed to pull the artifact from S3")?;
 

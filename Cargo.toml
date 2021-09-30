@@ -9,12 +9,17 @@ website = "https://buildrecall.com"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.43" 
+anyhow = "1.0.43"
 clap = "3.0.0-beta.4"
 git2 = { version = "0.13.22", features = ["vendored-libgit2"] }
 hyper = "0.14.12"
 notify = "4.0.17"
-reqwest = { version = "0.11", features = ["blocking", "stream", "json"] }
+reqwest = { version = "0.11", features = [
+    "blocking",
+    "stream",
+    "json",
+    "brotli",
+] }
 tokio = { version = "1.11.0", features = ["full"] }
 serde_json = "1.0.66"
 serde = { version = "1.0.130", features = ["derive"] }
@@ -44,4 +49,3 @@ serde_qs = "0.8.4"
 
 [dev-dependencies]
 axum = "0.2.3"
-
