@@ -2,6 +2,7 @@ use std::{fs, io::Read};
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use futures::TryFutureExt;
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -183,16 +184,19 @@ impl BuildRecall for ApiClient {
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 
-        let logs_client = reqwest::ClientBuilder::new().brotli(true).build()?;
-        let _ = logs_client
-            .get(pull.logs_url)
-            .send()
-            .await?
-            .text()
-            .await
-            .map(|logs| {
-                eprintln!("{}", logs);
-            });
+        let _ = reqwest::get(&pull.logs_url)
+            .and_then(|r| async {
+                if !r.status().is_success() {
+                    return Ok(());
+                }
+                r.text().await.map(|logs| {
+                    if pull.artifact_url.is_none() {
+                        eprintln!("logs of previous failed build:");
+                    }
+                    eprintln!("{}", logs);
+                })
+            })
+            .await;
 
         let artifact_url = match pull.artifact_url {
             Some(u) => u,
@@ -203,13 +207,12 @@ impl BuildRecall for ApiClient {
             .spawn_blocking(move || -> Result<bool> {
                 let client = reqwest::blocking::Client::new();
 
-                let mut resp = client
+                let resp = client
                     .get(artifact_url)
                     .send()
                     .context("Failed to pull the artifact from S3")?;
 
-                let input = brotli::Decompressor::new(&mut resp, 4096);
-                let mut a = tar::Archive::new(input);
+                let mut a = tar::Archive::new(resp);
 
                 for entry in a
                     .entries()
