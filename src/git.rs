@@ -158,8 +158,10 @@ impl RecallGit {
                 .context("Failed to commit to the shadow git project")?;
 
                 let mut push_cbs = RemoteCallbacks::new();
-                push_cbs.push_update_reference(|ref_, msg| {
-                    eprintln!("{:?}", (ref_, msg));
+                push_cbs.push_update_reference(|_ref_, msg| {
+                    if let Some(msg) = msg {
+                        eprintln!("git push error {:?}", msg);
+                    }
                     Ok(())
                 });
 

@@ -1,2 +1,5 @@
 [project]
 name = 'brr'
+
+# use default rust job
+jobs = []
