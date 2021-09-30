@@ -28,7 +28,7 @@ jobs:
         env:
           BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
         run: |
-          brr pull cli
+          brr run brr
 
       # - uses: actions-rs/cargo@v1
       #   with:
