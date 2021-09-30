@@ -51,8 +51,8 @@ pub async fn run_secrets(
                 let env = f.env();
                 let mut map: HashMap<String, EnvValue> = HashMap::new();
                 let new_secret_env = SecretEnv {
-                    secret: new_secret.slug,
-                    version: new_secret.version,
+                    secret: new_secret.slug.clone(),
+                    version: new_secret.version.clone(),
                 };
 
                 for key in env.keys() {
@@ -73,14 +73,17 @@ pub async fn run_secrets(
                     map.insert(key.to_string(), val.to_owned());
                 }
 
-                print!("{:?}", map.clone());
-
                 LocalConfig {
                     env: Some(map),
                     jobs: f.jobs,
                     project: f.project,
                 }
             })?;
+
+            eprintln!(
+                "Created secret '{}' with version '{}'",
+                new_secret.slug, new_secret.version
+            );
 
             Ok(())
         }
