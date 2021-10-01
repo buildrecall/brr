@@ -1,11 +1,12 @@
 [project]
-name = 'brr'
+name = 'cli'
 
 [[jobs]]
-name = "build"
-run = """
+name = 'build'
+run = '''
 cargo build --release --workspace
-"""
-artifacts = ["target/x86_64-unknown-linux-musl/release/brr"]
-
-[jobs.env]
+'''
+artifacts = ['target/x86_64-unknown-linux-musl/release/brr']
+[jobs.env.name]
+secret = 'name'
+version = 11

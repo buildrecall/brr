@@ -18,6 +18,7 @@ pub struct JobConfig {
     pub name: Option<String>,
     pub run: Option<String>,
     pub artifacts: Option<Vec<String>>,
+    pub env: Option<HashMap<String, EnvValue>>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -38,7 +39,6 @@ pub enum EnvValue {
 pub struct LocalConfig {
     pub project: Option<ProjectConfig>,
     pub jobs: Option<Vec<JobConfig>>,
-    pub env: Option<HashMap<String, EnvValue>>,
 }
 
 impl LocalConfig {
@@ -50,13 +50,6 @@ impl LocalConfig {
         match self.project.clone() {
             Some(p) => p,
             None => ProjectConfig { name: None },
-        }
-    }
-
-    pub fn env(&self) -> HashMap<String, EnvValue> {
-        match self.env.clone() {
-            Some(e) => e,
-            None => HashMap::new(),
         }
     }
 }

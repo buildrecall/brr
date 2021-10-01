@@ -6,7 +6,9 @@ use clap::Clap;
 use crate::{
     api::{ApiClient, BuildRecall},
     config_global::read_global_config,
-    config_local::{overwrite_local_config, read_local_config, EnvValue, LocalConfig, SecretEnv},
+    config_local::{
+        overwrite_local_config, read_local_config, EnvValue, JobConfig, LocalConfig, SecretEnv,
+    },
 };
 
 /// Creates a new secret
@@ -48,34 +50,49 @@ pub async fn run_secrets(
                 .context("Failed to set secret")?;
 
             overwrite_local_config(local_config_dir, |f| {
-                let env = f.env();
-                let mut map: HashMap<String, EnvValue> = HashMap::new();
                 let new_secret_env = SecretEnv {
                     secret: new_secret.slug.clone(),
                     version: new_secret.version.clone(),
                 };
 
-                for key in env.keys() {
-                    let val = match env.get(key).unwrap() {
-                        crate::config_local::EnvValue::AsSecret(curr) => {
-                            // If it's this secret, let's bump the version
-                            if curr.secret.eq(key) {
-                                EnvValue::AsSecret(new_secret_env.clone())
-                            } else {
-                                EnvValue::AsSecret(curr.clone())
+                let mut jobs: Vec<JobConfig> = Vec::new();
+                for job in f.jobs() {
+                    let new_env = match job.env {
+                        None => HashMap::new(),
+                        Some(env) => {
+                            let mut map: HashMap<String, EnvValue> = HashMap::new();
+
+                            for key in env.keys() {
+                                let val = match env.get(key).unwrap() {
+                                    crate::config_local::EnvValue::AsSecret(curr) => {
+                                        // If it's this secret, let's bump the version
+                                        if curr.secret.eq(key) {
+                                            EnvValue::AsSecret(new_secret_env.clone())
+                                        } else {
+                                            EnvValue::AsSecret(curr.clone())
+                                        }
+                                    }
+                                    crate::config_local::EnvValue::AsString(s) => {
+                                        EnvValue::AsString(s.to_owned())
+                                    }
+                                };
+
+                                map.insert(key.to_string(), val.to_owned());
                             }
-                        }
-                        crate::config_local::EnvValue::AsString(s) => {
-                            EnvValue::AsString(s.to_owned())
+                            map
                         }
                     };
 
-                    map.insert(key.to_string(), val.to_owned());
+                    jobs.push(JobConfig {
+                        env: Some(new_env),
+                        artifacts: job.artifacts,
+                        name: job.name,
+                        run: job.run,
+                    });
                 }
 
                 LocalConfig {
-                    env: Some(map),
-                    jobs: f.jobs,
+                    jobs: Some(jobs),
                     project: f.project,
                 }
             })?;

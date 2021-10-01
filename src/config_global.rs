@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
