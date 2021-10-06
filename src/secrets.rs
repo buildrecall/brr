@@ -57,7 +57,7 @@ pub async fn run_secrets(
 
                 let mut jobs: Vec<JobConfig> = Vec::new();
                 for job in f.jobs() {
-                    let new_env = match job.env {
+                    let new_env = match job.clone().env {
                         None => HashMap::new(),
                         Some(env) => {
                             let mut map: HashMap<String, EnvValue> = HashMap::new();
@@ -83,12 +83,9 @@ pub async fn run_secrets(
                         }
                     };
 
-                    jobs.push(JobConfig {
-                        env: Some(new_env),
-                        artifacts: job.artifacts,
-                        name: job.name,
-                        run: job.run,
-                    });
+                    let mut new_job = job.clone();
+                    new_job.env = Some(new_env);
+                    jobs.push(new_job);
                 }
 
                 LocalConfig {
