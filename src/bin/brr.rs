@@ -1,13 +1,10 @@
 use std::env;
 
 use anyhow::{Context, Result};
-use attach::AttachArguments;
 use clap::{AppSettings, Clap};
+use init::AttachArguments;
 
 use brr::*;
-
-#[cfg(target_os = "macos")]
-use daemon::create_macos_launch_agent;
 
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
@@ -30,13 +27,7 @@ enum SubCommand {
     Invite(Invite),
 
     #[clap()]
-    Attach(Attach),
-
-    #[clap()]
-    Detach(Detach),
-
-    #[clap()]
-    Logs(Logs),
+    Init(Init),
 
     #[clap()]
     Run(Run),
@@ -44,10 +35,6 @@ enum SubCommand {
     #[clap()]
     #[doc(hidden)]
     Hash(Empty),
-
-    #[clap()]
-    #[doc(hidden)]
-    Daemon(Empty),
 
     #[clap()]
     #[doc(hidden)]
@@ -68,20 +55,12 @@ struct Secrets {
 #[derive(Clap, Debug)]
 struct Invite {}
 
-/// Streams the build logs from the build farm
+/// Creates a buildrecall.toml for this repo
 #[derive(Clap, Debug)]
-struct Logs {}
-
-/// Prebuilds this folder on the build farm
-#[derive(Clap, Debug)]
-struct Attach {
+struct Init {
     /// A name for this project that other folks on your team can understand
     pub name: Option<String>,
 }
-
-/// Stop prebuilding this folder on the build farm
-#[derive(Clap, Debug)]
-struct Detach {}
 
 /// Starts a job, or waits for an existing one with the
 /// same file hash and then downloads any artifacts.
@@ -104,27 +83,20 @@ async fn main() -> Result<()> {
     // (as below), requesting just the name used, or both at the same time
     match opts.subcmd {
         SubCommand::Login(l) => login::run_login(get_global_config_dir()?, l).await,
-        SubCommand::Attach(args) => {
-            #[cfg(target_os = "macos")]
-            create_macos_launch_agent()
-                .context("Failed to start the Build Recall syncing daemon.")?;
-
-            attach::run_attach(
+        SubCommand::Init(args) => {
+            init::run_attach(
                 get_global_config_dir()?,
                 AttachArguments { slug: args.name },
             )
             .await
         }
-        SubCommand::Detach(_) => detatch::run_detach(get_global_config_dir()?).await,
         SubCommand::Secrets(s) => {
             secrets::run_secrets(s.subcmd, get_global_config_dir()?, env::current_dir()?).await
         }
-        SubCommand::Logs(_) => todo!(),
         SubCommand::Run(a) => {
             run::pull_with_push_if_needed(get_global_config_dir()?, env::current_dir()?, a.job)
                 .await
         }
-        SubCommand::Daemon(_) => daemon::summon_daemon(get_global_config_dir()?).await,
         SubCommand::Hash(_) => {
             let curr = env::current_dir()?.as_path().to_path_buf();
             let files = list_non_ignored_files_in_dir(&curr.clone())

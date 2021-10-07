@@ -50,7 +50,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
             return Err(anyhow!(
             "This folder is already attached to a build farm named '{}'. Perhaps you meant to detach it, like this:\n\n\tbrr detach\n", 
             c.name
-        ));
+            ));
         }
         None => {}
     }
