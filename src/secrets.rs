@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    io::{self, BufRead, Read},
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Clap;
@@ -19,7 +23,7 @@ pub struct Set {
     name: String,
 
     #[clap()]
-    value: String,
+    value: Option<String>,
 }
 
 #[derive(Clap, Debug)]
@@ -44,8 +48,29 @@ pub async fn run_secrets(
                 "Missing a project.name parameter in the buildrecall.toml"
             ))?;
 
+            let value = match s.value {
+                Some(v) => v,
+                None => {
+                    // Listen for someone piping a file / reading from stdin
+                    let stdin = io::stdin();
+                    let mut stdin = stdin.lock();
+
+                    let mut line = String::new();
+                    while let Ok(n_bytes) = stdin.read_to_string(&mut line) {
+                        if n_bytes == 0 {
+                            break;
+                        }
+                    }
+
+                    let result = line.clone();
+                    line.clear();
+
+                    result
+                }
+            };
+
             let new_secret = client
-                .set_secret(project_slug, s.name, s.value)
+                .set_secret(project_slug, s.name, value)
                 .await
                 .context("Failed to set secret")?;
 
