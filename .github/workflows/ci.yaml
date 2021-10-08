@@ -23,4 +23,4 @@ jobs:
         env:
           BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
         run: |
-          brr run brr
+          brr run build musl
