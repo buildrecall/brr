@@ -5,7 +5,7 @@ use dialoguer::Confirm;
 
 use crate::{
     api::{ApiClient, BuildRecall, Project},
-    config_global::{overwrite_global_config, read_global_config, GlobalConfig, RepoConfig},
+    config_global::read_global_config,
     config_local::{overwrite_local_config, LocalConfig, ProjectConfig},
     git,
 };
@@ -35,25 +35,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
     let folder = pieces[pieces.len() - 1].clone();
     let slug = args.slug.unwrap_or(folder);
 
-    // check if global config already has this path.
-    // In which case do nothing
-    let existing = global_config.repo_config_of_pathbuf(path.clone())?;
-
     let projects = client.list_projects().await?;
-
-    match existing {
-        Some(c) => {
-            if projects.iter().find(|p| p.slug.clone() == c.name).is_none() {
-                return Err(anyhow!("This folder is attached to a build farm that no longer exists.\n\nIt might have been deleted by someone else, or it might exist on a different account.\nIf you want to recreate it, detach and then re-attach this folder:\n\n\tbrr detach\n\tbrr attach {}\n", c.name));
-            }
-
-            return Err(anyhow!(
-            "This folder is already attached to a build farm named '{}'. Perhaps you meant to detach it, like this:\n\n\tbrr detach\n", 
-            c.name
-            ));
-        }
-        None => {}
-    }
 
     // Check if there's already a project
     let maybe_project = projects.iter().find(|p| p.slug == slug.clone());
@@ -82,24 +64,6 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
         }
     };
 
-    // create the project in the global config
-    let project_config_id = project?.clone().id.clone();
-    let global_slug = slug.clone();
-    overwrite_global_config(global_config_dir.clone(), move |c| {
-        let mut repos: Vec<RepoConfig> = vec![RepoConfig {
-            path: path,
-            name: global_slug,
-            id: project_config_id,
-        }];
-        repos.extend(c.repos.unwrap_or(vec![]));
-
-        GlobalConfig {
-            connection: c.connection,
-            repos: Some(repos),
-        }
-    })
-    .context("Failed to store this project in the global config file")?;
-
     // Create a local config file
     let local_slug = slug.clone();
     overwrite_local_config(
@@ -115,7 +79,7 @@ pub async fn run_attach(global_config_dir: PathBuf, args: AttachArguments) -> Re
 
     // create a .git folder for brr to use that doesn't mess with the user's git.
     let g = git::RecallGit::new(global_config_dir.clone())?;
-    g.create_shadow_git_folder(project_config_id)
+    g.create_shadow_git_folder(slug)
         .context(format!("Failed to create a shadow git folder (used to sync files without messing with your own git setup) in {:?}/{}", global_config_dir, ".gits"))?;
 
     Ok(())
