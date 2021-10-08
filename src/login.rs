@@ -44,7 +44,6 @@ pub async fn run_login(global_config_dir: PathBuf, login: Login) -> Result<()> {
                     control_domain: Some(c.control_domain()),
                     scheduler_domain: Some(c.scheduler_domain()),
                 }),
-                repos: c.repos,
             })?;
 
             Ok(())

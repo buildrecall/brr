@@ -7,27 +7,24 @@ use hyper::{
 };
 use std::{
     convert::TryFrom,
-    path::{self, Path, PathBuf},
+    env,
+    path::{Path, PathBuf},
     sync::Once,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
-use uuid::Uuid;
 
 use crate::config_global::get_global_config_dir;
 use crate::config_global::read_global_config;
 
-fn worktree_path(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<PathBuf> {
-    let config = read_global_config(global_config_dir.clone())?;
-    let repoconfig = config
-        .repo_config_by_id(project_id)
-        .ok_or(anyhow!("No project in config with id: {}", project_id))?;
-
-    Ok(path::Path::new(&repoconfig.path).to_path_buf())
+fn worktree_path(slug: String) -> Result<PathBuf> {
+    // TODO: make this work anywhere in the repo, and use the buildrecall.toml or .git to figure out
+    // where we are
+    Ok(env::current_dir()?)
 }
 
-fn repo_path(global_config_dir: PathBuf, project_id: uuid::Uuid) -> Result<PathBuf> {
-    Ok(global_config_dir.join(".gits").join(project_id.to_string()))
+fn repo_path(global_config_dir: PathBuf, slug: String) -> Result<PathBuf> {
+    Ok(global_config_dir.join(".gits").join(slug))
 }
 
 const RECALL_GIT_SCHEME_HTTP: &str = "recall+git";
@@ -64,17 +61,17 @@ impl RecallGit {
         })
     }
 
-    pub fn create_shadow_git_folder(&self, project_id: uuid::Uuid) -> Result<()> {
+    pub fn create_shadow_git_folder(&self, slug: String) -> Result<()> {
         // Create the .git
-        let new_path = repo_path(self.global_config_dir.clone(), project_id)?;
+        let new_path = repo_path(self.global_config_dir.clone(), slug)?;
         std::fs::create_dir_all(&new_path)?;
         git2::Repository::init_bare(new_path)?;
 
         Ok(())
     }
 
-    pub fn get_repo_by_project(&self, project_id: uuid::Uuid) -> Result<Repository> {
-        let dot_git_path = repo_path(self.global_config_dir.clone(), project_id.clone())
+    pub fn get_repo_by_project(&self, slug: String) -> Result<Repository> {
+        let dot_git_path = repo_path(self.global_config_dir.clone(), slug.clone())
             .context("Failed to create path")?;
 
         let repo_exists = Path::new(&dot_git_path).is_dir();
@@ -87,18 +84,15 @@ impl RecallGit {
         }
         .context("Failed to init or open the shadow git repo")?;
 
-        repo.set_workdir(
-            &worktree_path(self.global_config_dir.clone(), project_id)?,
-            false,
-        )
-        .context("Failed to create a workdir for the shadow git repo")?;
+        repo.set_workdir(&worktree_path(slug.clone())?, false)
+            .context("Failed to create a workdir for the shadow git repo")?;
 
         Ok(repo)
     }
 
-    pub async fn hash_folder(&self, project_id: uuid::Uuid) -> Result<Oid> {
+    pub async fn hash_folder(&self, slug: String) -> Result<Oid> {
         let repo = self
-            .get_repo_by_project(project_id)
+            .get_repo_by_project(slug)
             .context("Failed to get git repository")?;
 
         let mut i = repo.index().context("Failed to get a git index")?;
@@ -115,11 +109,11 @@ impl RecallGit {
         Ok(hash)
     }
 
-    pub async fn push_project(&self, project_id: Uuid, retry: bool) -> Result<()> {
+    pub async fn push_project(&self, slug: String, retry: bool) -> Result<()> {
         let config = read_global_config(self.global_config_dir.clone())?;
 
         let repo = self
-            .get_repo_by_project(project_id)
+            .get_repo_by_project(slug.clone())
             .context("Failed to get git repository")?;
 
         let handle = tokio::runtime::Handle::current();
@@ -173,7 +167,7 @@ impl RecallGit {
 
                 let query = serde_qs::to_string(&PushParams{wait: Some(retry), tree_hash_hex: Some(tree.id().to_string())})?;
 
-                let remote_url = format!("{}/p/{}/push?{}", config.git_host(), project_id, query);
+                let remote_url = format!("{}/p/{}/push?{}", config.git_host(), slug, query);
                 let mut push_opts = PushOptions::new();
                 push_opts.remote_callbacks(push_cbs);
                 let mut remote = repo

@@ -12,7 +12,6 @@ use std::{
 pub struct RepoConfig {
     pub id: uuid::Uuid,
     pub name: String,
-    pub path: PathBuf,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -30,10 +29,6 @@ pub struct ConnectionConfig {
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct GlobalConfig {
     pub connection: Option<ConnectionConfig>,
-
-    // To prevent "values emitted after tables, this repos needs"
-    // to happen after everything else.
-    pub repos: Option<Vec<RepoConfig>>,
 }
 
 const HTTP: &str = "http://";
@@ -101,39 +96,6 @@ impl GlobalConfig {
             .map(|c| c.access_token)
             .flatten()
             .or(std::env::var("BUILDRECALL_API_KEY").ok())
-    }
-
-    pub fn repo_config_by_id(&self, id: uuid::Uuid) -> Option<RepoConfig> {
-        let repos = self.repos.clone().unwrap_or(vec![]);
-        repos.into_iter().find(|f| f.id == id)
-    }
-
-    pub fn repo_config_of_pathbuf(&self, buf: PathBuf) -> Result<Option<RepoConfig>> {
-        // check if global config already has this path.
-        // In which case do nothing
-        let empty = vec![];
-        let mut configs = self.clone().repos.unwrap_or(empty);
-
-        //  try most-specific paths first
-        configs.sort_by_key(|c| -(c.path.as_os_str().len() as i64));
-        let existing = configs
-            .iter()
-            .filter(|c| buf.ancestors().any(|p| &c.path == &p))
-            .next();
-
-        Ok(existing.cloned())
-    }
-
-    pub fn repo_config_of_current_dir(&self) -> Result<Option<RepoConfig>> {
-        let path = env::current_dir()?;
-
-        // check if global config already has this path.
-        // In which case do nothing
-        let empty = vec![];
-        let configs = self.clone().repos.unwrap_or(empty);
-        let existing = configs.iter().find(|r| r.path == path);
-
-        Ok(existing.cloned())
     }
 }
 
@@ -253,7 +215,6 @@ mod tests {
                 control_domain: Some(c.control_domain()),
                 scheduler_domain: Some(c.scheduler_domain()),
             }),
-            repos: c.repos,
         });
 
         let written_config = read_global_config(dir.clone())
@@ -261,28 +222,5 @@ mod tests {
             .unwrap();
 
         assert_eq!(written_config.access_token(), Some("i-am-test".to_string()));
-    }
-
-    #[test]
-    fn test_ensure_can_write_none() {
-        let tmp = TempDir::new(".buildrecall")
-            .context("Can't create a tmp dir")
-            .unwrap();
-        let dir = tmp.into_path();
-
-        let _ = overwrite_global_config(dir.clone(), |c| GlobalConfig {
-            connection: Some(ConnectionConfig {
-                access_token: Some("i-am-test".to_string()),
-                control_domain: Some(c.control_domain()),
-                scheduler_domain: Some(c.scheduler_domain()),
-            }),
-            repos: None,
-        });
-
-        let written_config = read_global_config(dir.clone())
-            .context("Can't read global config")
-            .unwrap();
-
-        assert!(written_config.repos.is_none());
     }
 }

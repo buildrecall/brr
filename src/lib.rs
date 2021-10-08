@@ -3,7 +3,6 @@ pub use crate::{config_global::get_global_config_dir, hash::list_non_ignored_fil
 pub mod api;
 pub mod config_global;
 pub mod config_local;
-pub mod detatch;
 pub mod git;
 pub mod hash;
 pub mod init;

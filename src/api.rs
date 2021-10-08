@@ -82,7 +82,7 @@ pub trait BuildRecall {
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
     //  returns whether artifact were ready
-    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool>;
+    async fn pull_project(&self, slug: String, hash: String) -> Result<bool>;
     async fn set_secret(
         &self,
         project_slug: String,
@@ -115,11 +115,7 @@ impl ApiClient {
             anyhow!("Can't find an 'access_token'. Specify one in your global config file (which typically lives at ~/.buildrecall/config) or if in CI, in the BUILDRECALL_API_KEY env var."))
     }
 
-    async fn pull_artifact_url(
-        &self,
-        project_id: uuid::Uuid,
-        hash: String,
-    ) -> Result<PullResponse> {
+    async fn pull_artifact_url(&self, slug: String, hash: String) -> Result<PullResponse> {
         let client = reqwest::Client::new();
 
         let tok = self.token()?.clone();
@@ -129,7 +125,7 @@ impl ApiClient {
             .get(format!(
                 "{}/p/{}/pull/{}",
                 scheduler_host.clone(),
-                project_id,
+                slug.clone(),
                 &hash
             ))
             .bearer_auth(tok)
@@ -146,7 +142,7 @@ impl ApiClient {
 
         if !pullresp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("GET {}/p/{}/pull/{}", scheduler_host, project_id, &hash),
+                request: format!("GET {}/p/{}/pull/{}", scheduler_host, slug.clone(), &hash),
                 status: pullresp.status(),
             }
             .into());
@@ -247,11 +243,11 @@ impl BuildRecall for ApiClient {
         Ok(secret)
     }
 
-    async fn pull_project(&self, project_id: uuid::Uuid, hash: String) -> Result<bool> {
+    async fn pull_project(&self, slug: String, hash: String) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();
 
         let pull = self
-            .pull_artifact_url(project_id, hash)
+            .pull_artifact_url(slug, hash)
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 

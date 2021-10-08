@@ -1,35 +1,28 @@
 use anyhow::{anyhow, Context, Result};
-use std::path::PathBuf;
-use uuid::Uuid;
+use std::{env, path::PathBuf};
 
-use crate::{config_global::read_global_config, git::RecallGit};
+use crate::{config_local, git::RecallGit};
 
 pub async fn run_push(global_config_dir: PathBuf) -> Result<()> {
-    let config = read_global_config(global_config_dir.clone())
-        .context("Failed to read global config file")?;
-    let repoconfig = config
-        .clone()
-        .repo_config_of_current_dir()?
-        .ok_or(anyhow!(
-            "This isn't a buildrecall project, try running attach first."
-        ))?
-        .clone();
+    let config = config_local::read_local_config(env::current_dir()?)?;
+
+    let name = config
+        .project()
+        .name
+        .ok_or(anyhow!("This project doesn't have a name property"))?;
 
     let g = RecallGit::new(global_config_dir).context("Failed to create shadow git")?;
-    g.push_project(repoconfig.id, false)
+    g.push_project(name, false)
         .await
         .context("Failed to push to shadow git repo")?;
 
     Ok(())
 }
 
-pub async fn run_push_in_current_dir_retry(
-    global_config_dir: PathBuf,
-    project_id: Uuid,
-) -> Result<()> {
+pub async fn run_push_in_current_dir_retry(global_config_dir: PathBuf, slug: String) -> Result<()> {
     let g = RecallGit::new(global_config_dir).context("Failed to create shadow git")?;
 
-    g.push_project(project_id, true)
+    g.push_project(slug, true)
         .await
         .context("Failed to push to shadow git repo")?;
 
