@@ -18,7 +18,7 @@ pub enum ApiError {
     BadResponse { status: StatusCode, request: String },
 }
 
-use crate::config_global::GlobalConfig;
+use crate::{config_global::GlobalConfig, git::PushQueryParams};
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequestBody {
@@ -82,7 +82,8 @@ pub trait BuildRecall {
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
     //  returns whether artifact were ready
-    async fn pull_project(&self, slug: String, hash: String) -> Result<bool>;
+    async fn pull_project(&self, slug: String, args: PushQueryParams, hash: String)
+        -> Result<bool>;
     async fn set_secret(
         &self,
         project_slug: String,
@@ -115,7 +116,12 @@ impl ApiClient {
             anyhow!("Can't find an 'access_token'. Specify one in your global config file (which typically lives at ~/.buildrecall/config) or if in CI, in the BUILDRECALL_API_KEY env var."))
     }
 
-    async fn pull_artifact_url(&self, slug: String, hash: String) -> Result<PullResponse> {
+    async fn pull_artifact_url(
+        &self,
+        slug: String,
+        args: &PushQueryParams,
+        hash: String,
+    ) -> Result<PullResponse> {
         let client = reqwest::Client::new();
 
         let tok = self.token()?.clone();
@@ -128,6 +134,7 @@ impl ApiClient {
                 slug.clone(),
                 &hash
             ))
+            .query(args)
             .bearer_auth(tok)
             .send()
             .await
@@ -243,11 +250,16 @@ impl BuildRecall for ApiClient {
         Ok(secret)
     }
 
-    async fn pull_project(&self, slug: String, hash: String) -> Result<bool> {
+    async fn pull_project(
+        &self,
+        slug: String,
+        args: PushQueryParams,
+        hash: String,
+    ) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();
 
         let pull = self
-            .pull_artifact_url(slug, hash)
+            .pull_artifact_url(slug, &args, hash)
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 

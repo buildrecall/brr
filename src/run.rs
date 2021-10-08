@@ -5,7 +5,7 @@ use crate::{
     api::{ApiClient, BuildRecall, Project},
     config_global::read_global_config,
     config_local::read_local_config,
-    git,
+    git::{self, PushQueryParams},
     push::run_push_in_current_dir_retry,
 };
 
@@ -63,6 +63,14 @@ pub async fn run_pull(
     let g = git::RecallGit::new(global_config_dir.clone())
         .context("Failed to create a shadow git instance")?;
 
+    let local_config = read_local_config(git::worktree_path(slug.clone())?)?;
+    let image = match local_config.containers.get(&args.container) {
+        Some(c) => c.image.clone(),
+        None => {
+            anyhow::bail!("No image for container named {}", args.container);
+        }
+    };
+
     let oid = g
         .hash_folder(slug.clone())
         .await
@@ -70,8 +78,16 @@ pub async fn run_pull(
 
     let client = ApiClient::new(config);
 
+    let args = PushQueryParams {
+        job: args.job.clone(),
+        container: args.container.clone(),
+        image,
+
+        ..Default::default()
+    };
+
     let pulled = client
-        .pull_project(slug, oid.to_string())
+        .pull_project(slug, args, oid.to_string())
         .await
         .context("Failed to pull project")?;
 

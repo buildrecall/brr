@@ -17,7 +17,7 @@ use tracing::*;
 use crate::{config_global::get_global_config_dir, config_local::read_local_config, run::JobArgs};
 use crate::config_global::read_global_config;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Default)]
 pub struct PushQueryParams {
     pub wait: Option<bool>,
     pub tree_hash_hex: Option<String>,
@@ -26,7 +26,7 @@ pub struct PushQueryParams {
     pub image: String,
 }
 
-fn worktree_path(slug: String) -> Result<PathBuf> {
+pub fn worktree_path(slug: String) -> Result<PathBuf> {
     // TODO: make this work anywhere in the repo, and use the buildrecall.toml or .git to figure out
     // where we are
     Ok(env::current_dir()?)
