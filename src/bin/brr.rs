@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::{AppSettings, Clap};
 use init::AttachArguments;
 
-use brr::*;
+use brr::{run::JobArgs, *};
 
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
@@ -35,10 +35,6 @@ enum SubCommand {
     #[clap()]
     #[doc(hidden)]
     Hash(Empty),
-
-    #[clap()]
-    #[doc(hidden)]
-    Push(Empty),
 
     #[clap()]
     Secrets(Secrets),
@@ -95,8 +91,15 @@ async fn main() -> Result<()> {
             secrets::run_secrets(s.subcmd, get_global_config_dir()?, env::current_dir()?).await
         }
         SubCommand::Run(a) => {
-            run::pull_with_push_if_needed(get_global_config_dir()?, env::current_dir()?, a.job)
-                .await
+            run::pull_with_push_if_needed(
+                get_global_config_dir()?,
+                env::current_dir()?,
+                JobArgs {
+                    job: a.job,
+                    container: a.container,
+                },
+            )
+            .await
         }
         SubCommand::Hash(_) => {
             let curr = env::current_dir()?.as_path().to_path_buf();
@@ -109,6 +112,5 @@ async fn main() -> Result<()> {
             Ok(())
         }
         SubCommand::Invite(_) => invite::run_invite(get_global_config_dir()?).await,
-        SubCommand::Push(_) => push::run_push(get_global_config_dir()?).await,
     }
 }

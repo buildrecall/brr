@@ -9,3 +9,6 @@ cargo build --release --workspace
 artifacts = ['target/x86_64-unknown-linux-musl/release/brr']
 # [jobs.env]
 # name = { secret = 'name', version = 11 }
+
+[containers.musl]
+image = "clux/muslrust:1.55.0-stable"

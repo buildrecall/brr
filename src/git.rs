@@ -14,8 +14,17 @@ use std::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::*;
 
-use crate::config_global::get_global_config_dir;
+use crate::{config_global::get_global_config_dir, config_local::read_local_config, run::JobArgs};
 use crate::config_global::read_global_config;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct PushQueryParams {
+    pub wait: Option<bool>,
+    pub tree_hash_hex: Option<String>,
+    pub job: String,
+    pub container: String,
+    pub image: String,
+}
 
 fn worktree_path(slug: String) -> Result<PathBuf> {
     // TODO: make this work anywhere in the repo, and use the buildrecall.toml or .git to figure out
@@ -109,8 +118,15 @@ impl RecallGit {
         Ok(hash)
     }
 
-    pub async fn push_project(&self, slug: String, retry: bool) -> Result<()> {
+    pub async fn push_project(&self, slug: String, retry: bool, args: JobArgs) -> Result<()> {
         let config = read_global_config(self.global_config_dir.clone())?;
+
+        let local_config = read_local_config(worktree_path(slug.clone())?)?;
+
+        let image = match local_config.containers.get(&args.container){
+            Some(c) => c.image.clone(),
+            None => anyhow::bail!("no image configured for container {}", args.container),
+        };
 
         let repo = self
             .get_repo_by_project(slug.clone())
@@ -159,13 +175,14 @@ impl RecallGit {
                     Ok(())
                 });
 
-                #[derive(serde::Serialize)]
-                struct PushParams {
-                    wait: Option<bool>,
-                    tree_hash_hex: Option<String>,
-                }
 
-                let query = serde_qs::to_string(&PushParams{wait: Some(retry), tree_hash_hex: Some(tree.id().to_string())})?;
+                let query = serde_qs::to_string(&PushQueryParams{
+                    wait: Some(retry), 
+                    tree_hash_hex: Some(tree.id().to_string()), 
+                    job: args.job, 
+                    container: args.container, 
+                    image,
+                })?;
 
                 let remote_url = format!("{}/p/{}/push?{}", config.git_host(), slug, query);
                 let mut push_opts = PushOptions::new();

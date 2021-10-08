@@ -46,10 +46,17 @@ pub async fn preattach_to_repo(global_config_dir: PathBuf, slug: String) -> Resu
     Ok(project.id)
 }
 
+#[derive(Clone)]
+pub struct JobArgs {
+    pub job: String,
+    pub container: String,
+}
+
 pub async fn run_pull(
     global_config_dir: PathBuf,
     current_dir: PathBuf,
     slug: String,
+    args: JobArgs,
 ) -> Result<bool> {
     let config = read_global_config(global_config_dir.clone())
         .context("Failed to parse the global config ~/.builrecall/config.toml")?;
@@ -74,7 +81,7 @@ pub async fn run_pull(
 pub async fn pull_with_push_if_needed(
     global_config_dir: PathBuf,
     current_dir: PathBuf,
-    job: String,
+    args: JobArgs,
 ) -> Result<()> {
     let local =
         read_local_config(current_dir.clone()).context("Failed to read buildrecall.toml")?;
@@ -89,11 +96,24 @@ pub async fn pull_with_push_if_needed(
             slug
         ))?;
 
-    let mut pulled = run_pull(global_config_dir.clone(), current_dir.clone(), slug.clone()).await?;
+    let mut pulled = run_pull(
+        global_config_dir.clone(),
+        current_dir.clone(),
+        slug.clone(),
+        args.clone(),
+    )
+    .await?;
 
     if !pulled {
-        run_push_in_current_dir_retry(global_config_dir.clone(), slug.clone()).await?;
-        pulled = run_pull(global_config_dir.clone(), current_dir, slug.clone()).await?;
+        run_push_in_current_dir_retry(global_config_dir.clone(), slug.clone(), args.clone())
+            .await?;
+        pulled = run_pull(
+            global_config_dir.clone(),
+            current_dir,
+            slug.clone(),
+            args.clone(),
+        )
+        .await?;
     }
 
     if !pulled {
