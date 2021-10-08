@@ -34,11 +34,19 @@ pub enum EnvValue {
     AsString(String),
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Container {
+    pub image: String,
+}
+
 // What's stored in their repo directory
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct LocalConfig {
     pub project: Option<ProjectConfig>,
     pub jobs: Option<Vec<JobConfig>>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub containers: HashMap<String, Container>,
 }
 
 impl LocalConfig {

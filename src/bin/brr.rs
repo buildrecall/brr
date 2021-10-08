@@ -70,6 +70,7 @@ struct Init {
 struct Run {
     /// The name of the job
     job: String,
+    container: String,
 }
 
 #[derive(Clap, Debug)]

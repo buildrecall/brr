@@ -88,10 +88,9 @@ pub async fn run_secrets(
                     jobs.push(new_job);
                 }
 
-                LocalConfig {
-                    jobs: Some(jobs),
-                    project: f.project,
-                }
+                let mut new_config = f.clone();
+                new_config.jobs = Some(jobs);
+                new_config
             })?;
 
             eprintln!(
