@@ -284,7 +284,9 @@ impl BuildRecall for ApiClient {
 
         handle
             .spawn_blocking(move || -> Result<bool> {
-                let client = reqwest::blocking::Client::new();
+                let client = reqwest::blocking::ClientBuilder::new()
+                    .tcp_keepalive(Some(std::time::Duration::from_secs(60)))
+                    .build()?;
 
                 let resp = client
                     .get(artifact_url)
