@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{self, BufRead, Read},
+    io::{self, Read},
     path::PathBuf,
 };
 
@@ -80,8 +80,8 @@ pub async fn run_secrets(
                     version: new_secret.version.clone(),
                 };
 
-                let mut jobs: Vec<JobConfig> = Vec::new();
-                for job in f.jobs() {
+                let mut jobs: HashMap<String, JobConfig> = HashMap::new();
+                for (name, job) in f.jobs() {
                     let new_env = match job.clone().env {
                         None => HashMap::new(),
                         Some(env) => {
@@ -110,11 +110,11 @@ pub async fn run_secrets(
 
                     let mut new_job = job.clone();
                     new_job.env = Some(new_env);
-                    jobs.push(new_job);
+                    jobs.insert(name, new_job);
                 }
 
                 let mut new_config = f.clone();
-                new_config.jobs = Some(jobs);
+                new_config.jobs = jobs;
                 new_config
             })?;
 

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -15,7 +16,6 @@ pub struct ProjectConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct JobConfig {
-    pub name: Option<String>,
     pub run: Option<String>,
     pub artifacts: Option<Vec<String>>,
     pub env: Option<HashMap<String, EnvValue>>,
@@ -43,15 +43,20 @@ pub struct Container {
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct LocalConfig {
     pub project: Option<ProjectConfig>,
-    pub jobs: Option<Vec<JobConfig>>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub jobs: HashMap<String, JobConfig>,
     #[serde(default)]
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub containers: HashMap<String, Container>,
 }
 
 impl LocalConfig {
-    pub fn jobs(&self) -> Vec<JobConfig> {
-        self.jobs.clone().unwrap_or(vec![])
+    pub fn jobs(&self) -> Vec<(String, JobConfig)> {
+        self.jobs
+            .keys()
+            .map(|k| (k.clone(), self.jobs.get(k).unwrap().clone()))
+            .collect_vec()
     }
 
     pub fn project(&self) -> ProjectConfig {
