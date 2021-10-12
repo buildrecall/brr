@@ -46,7 +46,6 @@ brotli = "3.3.2"
 tar = "0.4.37"
 serde_qs = "0.8.4"
 chrono = { version = "0.4.19", features = ["serde"] }
-reqwest-eventsource = { git = "https://github.com/fenhl/reqwest-eventsource", branch = "tokio1" }
 
 
 [dev-dependencies]
