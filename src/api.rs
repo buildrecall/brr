@@ -122,7 +122,9 @@ impl ApiClient {
         args: &PushQueryParams,
         hash: String,
     ) -> Result<PullResponse> {
-        let client = reqwest::Client::new();
+        let client = reqwest::ClientBuilder::new()
+            .tcp_keepalive(Some(std::time::Duration::from_secs(2 * 60 * 60)))
+            .build()?;
 
         let tok = self.token()?.clone();
         let scheduler_host = self.get_scheduler_host().clone();
