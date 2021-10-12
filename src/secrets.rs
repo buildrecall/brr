@@ -82,34 +82,32 @@ pub async fn run_secrets(
 
                 let mut jobs: HashMap<String, JobConfig> = HashMap::new();
                 for (name, job) in f.jobs() {
-                    let new_env = match job.clone().env {
-                        None => HashMap::new(),
-                        Some(env) => {
-                            let mut map: HashMap<String, EnvValue> = HashMap::new();
+                    let new_env = {
+                        let mut map: HashMap<String, EnvValue> = HashMap::new();
 
-                            for key in env.keys() {
-                                let val = match env.get(key).unwrap() {
-                                    crate::config_local::EnvValue::AsSecret(curr) => {
-                                        // If it's this secret, let's bump the version
-                                        if curr.secret.eq(key) {
-                                            EnvValue::AsSecret(new_secret_env.clone())
-                                        } else {
-                                            EnvValue::AsSecret(curr.clone())
-                                        }
+                        let env = &job.env;
+                        for key in env.keys() {
+                            let val = match env.get(key).unwrap() {
+                                crate::config_local::EnvValue::AsSecret(curr) => {
+                                    // If it's this secret, let's bump the version
+                                    if curr.secret.eq(key) {
+                                        EnvValue::AsSecret(new_secret_env.clone())
+                                    } else {
+                                        EnvValue::AsSecret(curr.clone())
                                     }
-                                    crate::config_local::EnvValue::AsString(s) => {
-                                        EnvValue::AsString(s.to_owned())
-                                    }
-                                };
+                                }
+                                crate::config_local::EnvValue::AsString(s) => {
+                                    EnvValue::AsString(s.to_owned())
+                                }
+                            };
 
-                                map.insert(key.to_string(), val.to_owned());
-                            }
-                            map
+                            map.insert(key.to_string(), val.to_owned());
                         }
+                        map
                     };
 
                     let mut new_job = job.clone();
-                    new_job.env = Some(new_env);
+                    new_job.env = new_env;
                     jobs.insert(name, new_job);
                 }
 

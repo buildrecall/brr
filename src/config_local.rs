@@ -16,9 +16,13 @@ pub struct ProjectConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct JobConfig {
-    pub run: Option<String>,
-    pub artifacts: Option<Vec<String>>,
-    pub env: Option<HashMap<String, EnvValue>>,
+    pub run: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub env: HashMap<String, EnvValue>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
