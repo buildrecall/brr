@@ -85,6 +85,7 @@ pub enum PullEvent {
 pub struct PushQueryParams {
     pub project_slug: String,
     pub wait: Option<bool>,
+    pub tree_hash: String,
     pub job: String,
     pub container: String,
     pub image: String,

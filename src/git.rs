@@ -130,7 +130,7 @@ impl RecallGit {
             .spawn_blocking(move || -> Result<_> {
                 let mut i = repo.index().context("Failed to get a git index")?;
 
-                let tree = {
+                let tree_oid = {
                     i.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
                         .context("Failed to index add all")?;
                     i.write_tree()
@@ -138,7 +138,7 @@ impl RecallGit {
                 .context("failed to generate a git tree")?;
 
                 let tree = repo
-                    .find_tree(tree)
+                    .find_tree(tree_oid)
                     .context("Failed to find a git tree in this repository")?;
                 let sig = git2::Signature::now("buildrecall", "bot@buildrecall.com")
                 .context(
@@ -170,6 +170,7 @@ impl RecallGit {
 
                 let query = serde_qs::to_string(&PushQueryParams{
                     wait: Some(retry), 
+                    tree_hash: tree_oid.to_string(),
                     project_slug: slug,
                     job: args.job, 
                     container: args.container, 
