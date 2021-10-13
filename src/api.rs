@@ -81,7 +81,7 @@ pub enum PullEvent {
     LogLine(String),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
 pub struct PushQueryParams {
     pub project_slug: String,
     pub wait: Option<bool>,
@@ -91,7 +91,7 @@ pub struct PushQueryParams {
     pub image: String,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
 pub struct PullQueryParams {
     pub project_slug: String,
     pub tree_hash: String,
