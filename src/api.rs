@@ -151,13 +151,9 @@ impl ApiClient {
         let tok = self.token()?.clone();
         let query = serde_qs::to_string(&args)?;
 
-        let req = http::Request::get(&format!(
-            "{}/pull/ws?{}",
-            self.get_scheduler_ws_host(),
-            query
-        ))
-        .header(http::header::AUTHORIZATION, &format!("Bearer: {}", tok))
-        .body(())?;
+        let req = http::Request::get(&format!("{}/pull?{}", self.get_scheduler_ws_host(), query))
+            .header(http::header::AUTHORIZATION, &format!("Bearer: {}", tok))
+            .body(())?;
 
         let (mut ws, pullresp) = tokio_tungstenite::connect_async(req).await?;
 
