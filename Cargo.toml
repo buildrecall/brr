@@ -46,9 +46,7 @@ brotli = "3.3.2"
 tar = "0.4.37"
 serde_qs = "0.8.4"
 chrono = { version = "0.4.19", features = ["serde"] }
-tokio-tungstenite = { version = "0.15.0", features = [
-    "rustls-tls-webpki-roots",
-] }
+tokio-tungstenite = { version = "0.15.0", features = ["rustls-tls"] }
 
 
 [dev-dependencies]
