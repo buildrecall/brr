@@ -170,13 +170,13 @@ impl RecallGit {
 
                 let query = serde_qs::to_string(&PushQueryParams{
                     wait: Some(retry), 
-                    tree_hash_hex: Some(tree.id().to_string()), 
+                    project_slug: slug,
                     job: args.job, 
                     container: args.container, 
                     image,
                 })?;
 
-                let remote_url = format!("{}/p/{}/push?{}", config.git_host(), slug, query);
+                let remote_url = format!("{}/push?{}", config.git_host(), query);
                 let mut push_opts = PushOptions::new();
                 push_opts.remote_callbacks(push_cbs);
                 let mut remote = repo

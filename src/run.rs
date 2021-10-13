@@ -79,15 +79,15 @@ pub async fn run_pull(
     let client = ApiClient::new(config);
 
     let args = PullQueryParams {
+        tree_hash: oid.to_string(),
+        project_slug: slug,
         job: args.job.clone(),
         container: args.container.clone(),
         image,
-
-        ..Default::default()
     };
 
     let pulled = client
-        .pull_project(slug, args, oid.to_string())
+        .pull_project(args)
         .await
         .context("Failed to pull project")?;
 

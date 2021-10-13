@@ -83,8 +83,8 @@ pub enum PullEvent {
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 pub struct PushQueryParams {
+    pub project_slug: String,
     pub wait: Option<bool>,
-    pub tree_hash_hex: Option<String>,
     pub job: String,
     pub container: String,
     pub image: String,
@@ -92,6 +92,8 @@ pub struct PushQueryParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 pub struct PullQueryParams {
+    pub project_slug: String,
+    pub tree_hash: String,
     pub job: String,
     pub container: String,
     pub image: String,
@@ -104,8 +106,7 @@ pub trait BuildRecall {
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
     //  returns whether artifact were ready
-    async fn pull_project(&self, slug: String, args: PullQueryParams, hash: String)
-        -> Result<bool>;
+    async fn pull_project(&self, args: PullQueryParams) -> Result<bool>;
     async fn set_secret(
         &self,
         project_slug: String,
@@ -138,12 +139,7 @@ impl ApiClient {
             anyhow!("Can't find an 'access_token'. Specify one in your global config file (which typically lives at ~/.buildrecall/config) or if in CI, in the BUILDRECALL_API_KEY env var."))
     }
 
-    async fn pull_artifact_url(
-        &self,
-        slug: String,
-        args: &PullQueryParams,
-        hash: String,
-    ) -> Result<PullOutput> {
+    async fn pull_artifact_url(&self, args: &PullQueryParams) -> Result<PullOutput> {
         let client = reqwest::ClientBuilder::new()
             .tcp_keepalive(Some(std::time::Duration::from_secs(2 * 60 * 60)))
             .build()?;
@@ -152,12 +148,7 @@ impl ApiClient {
         let scheduler_host = self.get_scheduler_host().clone();
 
         let pullresp = client
-            .get(format!(
-                "{}/p/{}/pull/{}",
-                scheduler_host.clone(),
-                slug.clone(),
-                &hash
-            ))
+            .get(format!("{}/pull", scheduler_host.clone()))
             .query(args)
             .bearer_auth(tok)
             .send()
@@ -173,7 +164,7 @@ impl ApiClient {
 
         if !pullresp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("GET {}/p/{}/pull/{}", scheduler_host, slug.clone(), &hash),
+                request: format!("GET {}/pull", scheduler_host),
                 status: pullresp.status(),
             }
             .into());
@@ -274,16 +265,11 @@ impl BuildRecall for ApiClient {
         Ok(secret)
     }
 
-    async fn pull_project(
-        &self,
-        slug: String,
-        args: PullQueryParams,
-        hash: String,
-    ) -> Result<bool> {
+    async fn pull_project(&self, args: PullQueryParams) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();
 
         let pull = self
-            .pull_artifact_url(slug, &args, hash)
+            .pull_artifact_url(&args)
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 
