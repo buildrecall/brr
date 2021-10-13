@@ -18,7 +18,7 @@ pub enum ApiError {
     BadResponse { status: StatusCode, request: String },
 }
 
-use crate::{config_global::GlobalConfig, git::PushQueryParams};
+use crate::config_global::GlobalConfig;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequestBody {
@@ -69,10 +69,32 @@ pub struct ProjectSecret {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct PullResponse {
+pub struct PullOutput {
     // A pre-signed S3 URL
     pub artifact_url: Option<String>,
     pub logs_url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum PullEvent {
+    Completed(PullOutput),
+    LogLine(String),
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+pub struct PushQueryParams {
+    pub wait: Option<bool>,
+    pub tree_hash_hex: Option<String>,
+    pub job: String,
+    pub container: String,
+    pub image: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+pub struct PullQueryParams {
+    pub job: String,
+    pub container: String,
+    pub image: String,
 }
 
 #[async_trait]
@@ -82,7 +104,7 @@ pub trait BuildRecall {
     async fn create_project(&self, slug: String) -> Result<Project>;
     async fn invite(&self) -> Result<OrgInvite>;
     //  returns whether artifact were ready
-    async fn pull_project(&self, slug: String, args: PushQueryParams, hash: String)
+    async fn pull_project(&self, slug: String, args: PullQueryParams, hash: String)
         -> Result<bool>;
     async fn set_secret(
         &self,
@@ -119,9 +141,9 @@ impl ApiClient {
     async fn pull_artifact_url(
         &self,
         slug: String,
-        args: &PushQueryParams,
+        args: &PullQueryParams,
         hash: String,
-    ) -> Result<PullResponse> {
+    ) -> Result<PullOutput> {
         let client = reqwest::ClientBuilder::new()
             .tcp_keepalive(Some(std::time::Duration::from_secs(2 * 60 * 60)))
             .build()?;
@@ -157,7 +179,7 @@ impl ApiClient {
             .into());
         }
 
-        let r = pullresp.json::<PullResponse>().await?;
+        let r = pullresp.json::<PullOutput>().await?;
 
         Ok(r)
     }
@@ -255,7 +277,7 @@ impl BuildRecall for ApiClient {
     async fn pull_project(
         &self,
         slug: String,
-        args: PushQueryParams,
+        args: PullQueryParams,
         hash: String,
     ) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();

@@ -33,6 +33,8 @@ pub struct GlobalConfig {
 
 const HTTP: &str = "http://";
 const HTTPS: &str = "https://";
+const WS: &str = "ws://";
+const WSS: &str = "wss://";
 const RECALL_GIT: &str = "recall+git://"; // local git
 const RECALLS_GIT: &str = "recalls+git://"; // SSL git
 const BUILDRECALL_DOMAIN: &str = "buildrecall.com";
@@ -72,6 +74,16 @@ impl GlobalConfig {
             format!("{}{}", HTTP, domain).to_string()
         } else {
             format!("{}{}", HTTPS, domain).to_string()
+        }
+    }
+
+    pub fn scheduler_ws_host(&self) -> String {
+        let domain = self.scheduler_domain();
+
+        if domain == "localhost:7980" {
+            format!("{}{}", WS, domain).to_string()
+        } else {
+            format!("{}{}", WSS, domain).to_string()
         }
     }
 

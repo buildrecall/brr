@@ -2,10 +2,10 @@ use anyhow::{anyhow, Context, Result};
 use std::{env, path::PathBuf};
 
 use crate::{
-    api::{ApiClient, BuildRecall, Project},
+    api::{ApiClient, BuildRecall, Project, PullQueryParams, PushQueryParams},
     config_global::read_global_config,
     config_local::read_local_config,
-    git::{self, PushQueryParams},
+    git,
     push::run_push_in_current_dir_retry,
 };
 
@@ -78,7 +78,7 @@ pub async fn run_pull(
 
     let client = ApiClient::new(config);
 
-    let args = PushQueryParams {
+    let args = PullQueryParams {
         job: args.job.clone(),
         container: args.container.clone(),
         image,
