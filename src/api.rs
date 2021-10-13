@@ -3,7 +3,7 @@ use std::{fs, io::Read};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
-use futures::TryFutureExt;
+use futures::{SinkExt, StreamExt, TryFutureExt, TryStreamExt};
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -134,6 +134,10 @@ impl ApiClient {
         self.global_config.clone().scheduler_host()
     }
 
+    pub fn get_scheduler_ws_host(&self) -> String {
+        self.global_config.clone().scheduler_ws_host()
+    }
+
     fn token(&self) -> Result<String> {
         self.global_config.clone().access_token()
         .ok_or(
@@ -141,23 +145,21 @@ impl ApiClient {
     }
 
     async fn pull_artifact_url(&self, args: &PullQueryParams) -> Result<PullOutput> {
-        let client = reqwest::ClientBuilder::new()
-            .tcp_keepalive(Some(std::time::Duration::from_secs(2 * 60 * 60)))
-            .build()?;
+        use tokio_tungstenite::tungstenite::http;
+        use tokio_tungstenite::tungstenite::Message;
 
         let tok = self.token()?.clone();
-        let scheduler_host = self.get_scheduler_host().clone();
+        let query = serde_qs::to_string(&args)?;
 
-        let pullresp = client
-            .get(format!("{}/pull", scheduler_host.clone()))
-            .query(args)
-            .bearer_auth(tok)
-            .send()
-            .await
-            .map_err(|e| ApiError::FailedToConnect {
-                host: scheduler_host.clone(),
-                err: e,
-            })?;
+        let req = http::Request::get(&format!(
+            "{}/pull/ws?{}",
+            self.get_scheduler_ws_host(),
+            query
+        ))
+        .header(http::header::AUTHORIZATION, &format!("Bearer: {}", tok))
+        .body(())?;
+
+        let (mut ws, pullresp) = tokio_tungstenite::connect_async(req).await?;
 
         if pullresp.status() == 401 {
             return Err(ApiError::Unauthorized.into());
@@ -165,15 +167,33 @@ impl ApiClient {
 
         if !pullresp.status().is_success() {
             return Err(ApiError::BadResponse {
-                request: format!("GET {}/pull", scheduler_host),
+                request: format!("GET {}/pull", self.get_scheduler_ws_host()),
                 status: pullresp.status(),
             }
             .into());
         }
 
-        let r = pullresp.json::<PullOutput>().await?;
+        for msg in ws.try_next().await? {
+            match msg {
+                tokio_tungstenite::tungstenite::Message::Text(msg) => {
+                    let evt = serde_json::from_str::<PullEvent>(&msg)?;
+                    match evt {
+                        PullEvent::Completed(out) => return Ok(out),
+                        PullEvent::LogLine(_) => {}
+                    }
+                }
+                tokio_tungstenite::tungstenite::Message::Ping(b) => {
+                    tracing::debug!("received ping with {} bytes", b.len());
+                    ws.send(Message::Pong(b)).await?;
+                }
+                tokio_tungstenite::tungstenite::Message::Close(_) => {
+                    anyhow::bail!("unexpected websocket close");
+                }
+                _ => {}
+            }
+        }
 
-        Ok(r)
+        anyhow::bail!("unexpected websocket end");
     }
 }
 
