@@ -9,3 +9,4 @@ artifacts = ['target/x86_64-unknown-linux-musl/release/brr']
 
 [containers.musl]
 image = 'clux/muslrust:1.55.0-stable'
+persist = ['/root/.cargo/registry', '/root/.cargo/git']
