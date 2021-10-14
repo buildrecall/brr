@@ -161,7 +161,7 @@ impl ApiClient {
             return Err(ApiError::Unauthorized.into());
         }
 
-        if !pullresp.status().is_success() {
+        if pullresp.status() != StatusCode::SWITCHING_PROTOCOLS {
             return Err(ApiError::BadResponse {
                 request: format!("GET {}/pull", self.get_scheduler_ws_host()),
                 status: pullresp.status(),
@@ -169,7 +169,7 @@ impl ApiClient {
             .into());
         }
 
-        for msg in ws.try_next().await? {
+        while let Some(msg) = ws.try_next().await? {
             match msg {
                 tokio_tungstenite::tungstenite::Message::Text(msg) => {
                     let evt = serde_json::from_str::<PullEvent>(&msg)?;
@@ -180,7 +180,7 @@ impl ApiClient {
                 }
                 tokio_tungstenite::tungstenite::Message::Ping(b) => {
                     tracing::debug!("received ping with {} bytes", b.len());
-                    ws.send(Message::Pong(b)).await?;
+                    let _ = ws.send(Message::Pong(b)).await;
                 }
                 tokio_tungstenite::tungstenite::Message::Close(_) => {
                     anyhow::bail!("unexpected websocket close");
