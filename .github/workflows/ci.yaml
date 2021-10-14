@@ -11,7 +11,7 @@ jobs:
 
       - name: Download brr
         env:
-          TAG: 0.0.13
+          TAG: 0.0.14
         run: |
           curl -L https://github.com/buildrecall/brr/releases/download/$TAG/brr-$TAG-x86_64-unknown-linux-musl -o /tmp/brr
           sudo mv /tmp/brr /usr/bin/brr
