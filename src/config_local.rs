@@ -40,7 +40,11 @@ pub enum EnvValue {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Container {
+    /// Container image to run the build in
     pub image: String,
+    #[serde(default)]
+    /// Directory absolute paths to persist between builds
+    pub persist: Vec<String>,
 }
 
 // What's stored in their repo directory
