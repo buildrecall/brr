@@ -1,10 +1,11 @@
 [package]
 name = "brr"
 description = "Use a cloud build farm to make rust builds fast."
-version = "0.0.18"
+version = "0.0.19"
 edition = "2018"
 license = "MIT"
 website = "https://buildrecall.com"
+authors = ["evan@buildrecall.com", "kevin@buildrecall.com"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -6,10 +6,9 @@ use init::AttachArguments;
 
 use brr::{run::JobArgs, *};
 
-/// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
 #[clap(setting = AppSettings::ColoredHelp)]
-#[clap(author = "Build Recall")]
+#[clap(author, about, version)]
 struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
