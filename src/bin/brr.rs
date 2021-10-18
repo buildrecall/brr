@@ -9,7 +9,7 @@ use brr::{run::JobArgs, *};
 /// This is a tool that makes your builds faster.
 #[derive(Clap, Debug)]
 #[clap(setting = AppSettings::ColoredHelp)]
-#[clap(version = "0.0.16", author = "Build Recall")]
+#[clap(author = "Build Recall")]
 struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,

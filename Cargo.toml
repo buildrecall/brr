@@ -1,7 +1,7 @@
 [package]
 name = "brr"
 description = "Use a cloud build farm to make rust builds fast."
-version = "0.0.16"
+version = "0.0.17"
 edition = "2018"
 license = "MIT"
 website = "https://buildrecall.com"
@@ -10,7 +10,8 @@ website = "https://buildrecall.com"
 
 [dependencies]
 anyhow = "1.0.43"
-clap = "=3.0.0-beta.5" # pin version to prevent cargo-install issues with prerelease versions
+clap = "=3.0.0-beta.2" # pin version to prevent cargo-install issues with prerelease versions
+clap_derive = "=3.0.0-beta.2" # pin version to prevent cargo-install issues with prerelease versions
 git2 = { version = "0.13.22", features = ["vendored-libgit2"] }
 hyper = "0.14.12"
 notify = "4.0.17"
