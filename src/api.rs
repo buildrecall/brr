@@ -144,7 +144,8 @@ impl ApiClient {
             anyhow!("Can't find an 'access_token'. Specify one in your global config file (which typically lives at ~/.buildrecall/config) or if in CI, in the BUILDRECALL_API_KEY env var."))
     }
 
-    async fn pull_artifact_url(&self, args: &PullQueryParams) -> Result<PullOutput> {
+    //  returns whether logs have been printed
+    async fn pull_artifact_url(&self, args: &PullQueryParams) -> Result<(PullOutput, bool)> {
         use tokio_tungstenite::tungstenite::http;
         use tokio_tungstenite::tungstenite::Message;
 
@@ -169,13 +170,18 @@ impl ApiClient {
             .into());
         }
 
+        let mut received_logs = false;
+
         while let Some(msg) = ws.try_next().await? {
             match msg {
                 tokio_tungstenite::tungstenite::Message::Text(msg) => {
                     let evt = serde_json::from_str::<PullEvent>(&msg)?;
                     match evt {
-                        PullEvent::Completed(out) => return Ok(out),
-                        PullEvent::LogLine(_) => {}
+                        PullEvent::Completed(out) => return Ok((out, received_logs)),
+                        PullEvent::LogLine(log) => {
+                            received_logs = true;
+                            eprint!("{}", log);
+                        }
                     }
                 }
                 tokio_tungstenite::tungstenite::Message::Ping(b) => {
@@ -285,24 +291,26 @@ impl BuildRecall for ApiClient {
     async fn pull_project(&self, args: PullQueryParams) -> Result<bool> {
         let handle = tokio::runtime::Handle::current();
 
-        let pull = self
+        let (pull, already_printed_logs) = self
             .pull_artifact_url(&args)
             .await
             .context("Failed to pull s3 signed url for this artifact")?;
 
-        let _ = reqwest::get(&pull.logs_url)
-            .and_then(|r| async {
-                if !r.status().is_success() {
-                    return Ok(());
-                }
-                r.text().await.map(|logs| {
-                    if pull.artifact_url.is_none() {
-                        eprintln!("logs of previous failed build:");
+        if !already_printed_logs {
+            let _ = reqwest::get(&pull.logs_url)
+                .and_then(|r| async {
+                    if !r.status().is_success() {
+                        return Ok(());
                     }
-                    eprintln!("{}", logs);
+                    r.text().await.map(|logs| {
+                        if pull.artifact_url.is_none() {
+                            eprintln!("logs of previous failed build:");
+                        }
+                        eprintln!("{}", logs);
+                    })
                 })
-            })
-            .await;
+                .await;
+        }
 
         let artifact_url = match pull.artifact_url {
             Some(u) => u,
