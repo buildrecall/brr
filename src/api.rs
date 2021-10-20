@@ -327,29 +327,7 @@ impl BuildRecall for ApiClient {
                     .context("Failed to pull the artifact from S3")?;
 
                 let mut a = tar::Archive::new(resp);
-
-                for entry in a
-                    .entries()
-                    .context("Failed to list entries of tar archive")?
-                {
-                    let mut file = entry.context("Can't process an entry of tar archive")?;
-
-                    let mut buf = Vec::new();
-                    file.read_to_end(&mut buf)?;
-
-                    let path = file
-                        .header()
-                        .path()
-                        .context("Failed to parse path of archived file")?
-                        .clone();
-
-                    if let Some(parent) = path.parent() {
-                        fs::create_dir_all(parent)
-                            .context(format!("Failed to create directory {:?}", parent))?;
-                    }
-                    fs::write(path.clone(), buf)
-                        .context(format!("Failed to write to file at {:?}", path))?;
-                }
+                a.unpack(".")?;
 
                 Ok(true)
             })
