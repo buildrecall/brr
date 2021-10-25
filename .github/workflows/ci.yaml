@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
       - run: |
-        for path in $(ls); do mv $path/brr brr-$path
+        for path in $(ls); do mv $path/brr brr-$path; done
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
         with:
