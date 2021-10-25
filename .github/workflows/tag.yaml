@@ -2,9 +2,9 @@ on:
   push:
     tags:
       - "*"
-name: Release
+name: tag
 jobs:
-  build-and-release:
+  build:
     strategy:
       matrix:
         include:
@@ -40,13 +40,23 @@ jobs:
       #     command: build
       #     args: --release
 
+      - uses: actions/upload-artifact@v2
+        with:
+          name: brr-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/brr
+
+  release:
+    steps:
+      - uses: actions/download-artifact@v2
+        # with:
+        # name: brr-${{ matrix.target }}
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           # file: target/release/brr
-          file: target/${{ matrix.target }}/release/brr
-          asset_name: brr-$tag-${{ matrix.target }}
+          file: *
+          file_glob: true
           tag: ${{ github.ref }}
           overwrite: true
           body: ""
