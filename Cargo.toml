@@ -13,7 +13,9 @@ authors = ["evan@buildrecall.com", "kevin@buildrecall.com"]
 anyhow = "1.0.43"
 clap = "=3.0.0-beta.2" # pin version to prevent cargo-install issues with prerelease versions
 clap_derive = "=3.0.0-beta.2" # pin version to prevent cargo-install issues with prerelease versions
-git2 = { version = "0.13.22", features = ["vendored-libgit2"] }
+git2 = { version = "0.13.22", features = [
+    "vendored-libgit2",
+], default-features = false }
 hyper = "0.14.12"
 notify = "4.0.17"
 reqwest = { version = "0.11", features = [
@@ -49,7 +51,6 @@ tar = "0.4.37"
 serde_qs = "0.8.4"
 chrono = { version = "0.4.19", features = ["serde"] }
 tokio-tungstenite = { version = "0.15.0", features = ["rustls-tls"] }
-
 
 [dev-dependencies]
 axum = "0.2.3"

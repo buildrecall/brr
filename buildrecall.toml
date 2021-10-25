@@ -10,3 +10,18 @@ artifacts = ['target/x86_64-unknown-linux-musl/release/brr']
 [containers.musl]
 image = 'clux/muslrust:1.55.0-stable'
 persist = ['/root/.cargo/registry', '/root/.cargo/git']
+
+
+[jobs.macos-build]
+run = '''
+# https://github.com/tpoechtrager/osxcross/issues/258#issuecomment-826285743
+set TARGET_AR=$(xcrun -f ar)
+cargo build --release --target=x86_64-apple-darwin
+'''
+artifacts = ['target/x86_64-apple-darwin/release/brr']
+[jobs.macos-build.env]
+TARGET_CC = "o64-clang"
+
+[containers.darwin-builder]
+image = "joseluisq/rust-linux-darwin-builder"
+persist = ['/root/.cargo/registry', '/root/.cargo/git']

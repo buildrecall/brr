@@ -43,3 +43,34 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           body: ""
+
+  build-macos-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Download brr
+        env:
+          TAG: 0.0.21
+        run: |
+          env
+          curl -L https://github.com/buildrecall/brr/releases/download/$TAG/brr-$TAG-x86_64-unknown-linux-musl -o /tmp/brr
+          sudo mv /tmp/brr /usr/bin/brr
+          sudo chmod +x /usr/bin/brr
+          brr -V
+      - name: brr build
+        env:
+          BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
+        run: |
+          brr run macos-build darwin-builder
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # file: target/release/brr
+          file: target/x86_64-apple-darwin/release/brr
+          asset_name: brr-$tag-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: ""
