@@ -46,6 +46,7 @@ jobs:
           path: target/${{ matrix.target }}/release/brr
 
   release:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v2
         # with:
