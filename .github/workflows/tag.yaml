@@ -4,7 +4,7 @@ on:
       - "*"
 name: Release
 jobs:
-  "build and release":
+  build-and-release:
     strategy:
       matrix:
         include:
